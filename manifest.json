@@ -1,0 +1,17 @@
+{
+  "name": "용쥬네 · Life Town",
+  "short_name": "용쥬네",
+  "description": "뽀모도로 · 오늘의 퀘스트 · 투두 · 네트워크 기초 8단계 — 나만의 작은 3D 마을",
+  "lang": "ko",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#171227",
+  "theme_color": "#171227",
+  "icons": [
+    { "src": "icon-180.png", "sizes": "180x180", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
