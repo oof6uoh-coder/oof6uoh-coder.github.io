@@ -47,6 +47,7 @@
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%}
+html{background:#141022;overscroll-behavior-y:none}
 body{
   margin:0;
   font-family:var(--font);
@@ -57,6 +58,7 @@ body{
     radial-gradient(700px 500px at 50% 110%, #221a3a 0%, transparent 60%),
     linear-gradient(160deg, var(--bg1) 0%, var(--bg0) 55%, #0c0a14 100%);
   background-attachment:fixed;
+  background-color:#141022;
   overflow:hidden;
   font-size:14px;
   letter-spacing:-.01em;
@@ -204,7 +206,7 @@ input,textarea,select{font-family:inherit;color:inherit}
 .decorate-btn:hover{background:rgba(238,157,196,.28);transform:translateY(-1px)}
 
 /* ============ STAGE ============ */
-#scene3d{display:block;width:100%;height:100%;cursor:grab}
+#scene3d{display:block;width:100%;height:100%;cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 #scene3d:active{cursor:grabbing}
 .stage-top{
   position:absolute;top:14px;left:16px;right:16px;display:flex;justify-content:space-between;
@@ -760,11 +762,12 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
    3D 타운을 위에, 뽀모도로 · 퀘스토 · 투두 · 빠른 버튼을 아래에
    ============================================================ */
 @media(max-width:768px){
-  html{overflow-x:hidden}
-  body{overflow-y:auto;overflow-x:hidden;background-attachment:scroll}
+  html{overflow-x:hidden;height:auto;min-height:100%;background:#141022}
+  body{overflow-y:visible;overflow-x:hidden;background-attachment:scroll;background-color:#141022;
+    height:auto;min-height:100dvh}
   .app{
     display:flex;flex-direction:column;gap:10px;height:auto;min-height:100dvh;
-    padding:8px 8px calc(74px + env(safe-area-inset-bottom));
+    padding:max(10px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) calc(84px + env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left));
     grid-template-columns:none;grid-template-rows:none;overflow:visible
   }
   /* ---------- HUD ---------- */
@@ -788,7 +791,7 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
   .stat .k{display:block;font-size:8.5px;letter-spacing:-.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .lv-badge{font-size:9.5px;padding:2px 7px}
   /* ---------- 3D stage ---------- */
-  .stage{order:1;height:41vh;min-height:236px;max-height:380px;border-radius:22px;flex:none}
+  .stage{order:1;height:41vh;height:42dvh;min-height:320px;max-height:380px;border-radius:22px;flex:none}
   .stage-top{top:9px;left:9px;right:9px;gap:6px;justify-content:flex-end}
   .stage-chip{padding:6px 10px;font-size:9.5px;gap:5px;border-radius:999px}
   .stage-chip .dot{width:5px;height:5px}
@@ -820,10 +823,10 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
   /* ---------- bottom nav ---------- */
   .rail-wrap{
     order:9;position:fixed;left:0;right:0;bottom:0;z-index:45;
-    padding:0 env(safe-area-inset-left) env(safe-area-inset-bottom) env(safe-area-inset-right)
+    padding:0 env(safe-area-inset-left) 0 env(safe-area-inset-right)
   }
   .rail{
-    flex-direction:row;gap:1px;padding:6px 4px;border-radius:20px 20px 0 0;overflow:visible;
+    flex-direction:row;gap:1px;padding:6px 4px calc(6px + env(safe-area-inset-bottom));border-radius:20px 20px 0 0;overflow:visible;
     background:rgba(24,19,38,.97);border-top:1px solid var(--stroke-2);border-left:0;border-right:0;border-bottom:0;
     box-shadow:0 -12px 32px -14px #000, inset 0 1px 0 rgba(255,255,255,.07)
   }
@@ -880,7 +883,7 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
 }
 @media(max-width:380px){
   .brand h1{font-size:18px}
-  .stage{height:40vh;min-height:220px}
+  .stage{height:40vh;height:40dvh;min-height:300px}
   .stat .k{display:none}
   .rail-btn span{font-size:8px}
   .pomo-time{font-size:40px}
@@ -6233,12 +6236,15 @@ window.TownScene = (function () {
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
-    // narrow (phone) stage: pull the camera back so the whole island still fits
+    // narrow (phone) stage is nearly square: sit much closer than desktop so the
+    // island fills the frame (all four buildings + 용쥬 stay visible; only the
+    // outer water ring is trimmed)
     var narrow = w < 660;
     if (narrow !== viewNarrow) {
       viewNarrow = narrow;
-      camSph.radius = narrow ? 24.6 : 20.0;
+      camSph.radius = narrow ? 19.8 : 20.0;
       camSph.phi = narrow ? 1.13 : 1.17;
+      if (target) target.y = narrow ? 1.66 : 1.55;
     }
     placeCamera();
     var pr = Math.min(window.devicePixelRatio || 1, 2);
