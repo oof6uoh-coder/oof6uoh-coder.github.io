@@ -101,7 +101,11 @@ input,textarea,select{font-family:inherit;color:inherit}
 .stage::after{
   content:"";position:absolute;inset:0;pointer-events:none;z-index:4;border-radius:inherit;
   box-shadow:inset 0 0 90px 26px rgba(10,7,20,.55);
+  transition:box-shadow .8s ease;
 }
+/* 낮에는 창문처럼 환하게 — 어두운 비네트를 걷어내고 따뜻한 빛만 남긴다 */
+.stage.is-day::after{box-shadow:inset 0 0 70px 10px rgba(80,120,160,.13)}
+.stage.is-day{background:radial-gradient(120% 90% at 50% 20%, #cfeafb 0%, #e8f5ff 55%, #ffe8d6 100%)}
 .stage{grid-row:2;grid-column:2;position:relative;min-height:0;border-radius:var(--r-lg);overflow:hidden;
   background:radial-gradient(120% 90% at 50% 20%, #2b2149 0%, #191330 55%, #100c1c 100%);
   box-shadow:var(--shadow);border:1px solid var(--stroke);
@@ -2170,6 +2174,11 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     if (window.TownScene && TownScene.setName) TownScene.setName(S.charName);
   }
   function isNight() { var h = new Date().getHours(); return h >= 18 || h < 6; }
+  // 3D 마을이 스스로 낮/밤을 바꾸면(06시·18시) 상태 칩도 같이 바뀐다
+  window.addEventListener('town:daynight', function () {
+    var c = document.getElementById('townChip');
+    if (c) c.textContent = S.townName + ' · ' + (isNight() ? '저녁 산책 중' : '낮 산책 중');
+  });
 
   function paintClock() {
     var d = new Date(), h = d.getHours();
@@ -3717,6 +3726,19 @@ window.TownScene = (function () {
   var markerGrp = null, markerLife = 0, markerShown = 0;
   var groundMesh = null, moonGrp = null, moonBaseY = 0;
   var waterTex = null, shimmerTex = null, shimmerMesh = null, skyMat = null;
+  /* ---------- day / night state ---------- */
+  var domeNight = null, domeDay = null, dayMix = 0, dayTarget = 0, manualDay = false, autoDayState = null, autoTimer = null, dayFade = null;
+  var starsObj = null, waterMat = null, streakMesh = null, sunGrp = null, waterDayTex = null, waterTexIsDay = false;
+  var moonFade = [], sunFade = [], cloudMats = [], lampLights = [];
+  var hemiLight = null, sunLight = null, fillLight = null, dayAmbient = null;
+  var _cA = null, _cB = null;
+  /* palette knots: [nightHex, dayHex] */
+  var DAYNIGHT = {
+    hemiSky: [0x7f6fc4, 0xcfe9ff], hemiGround: [0x1d1730, 0xbfa892],
+    sunColor: [0xdcd0ff, 0xfff0cf], fogColor: [0x1c1636, 0xb9def5],
+    waterColor: [0x1a3157, 0x8ec3dd], waterEmi: [0x0a1a2e, 0x1f6383]
+  };
+  function localIsDay() { var h = new Date().getHours(); return h >= 6 && h < 18; }
   var camSph = { theta: 0.03, phi: 1.17, radius: 20.0 };
   var target = null;
   var R_WALK = 7.35;
@@ -4191,6 +4213,32 @@ window.TownScene = (function () {
       }
     }, { repeat: [3, 3] });
   }
+  function dayWaterTexture() {
+    return canvasTex(512, 512, function (g) {
+      g.fillStyle = '#4b93c4'; g.fillRect(0, 0, 512, 512);
+      // deep-to-shallow turquoise mottling
+      for (var m = 0; m < 60; m++) {
+        var mx = Math.random() * 512, my = Math.random() * 512, mr = 40 + Math.random() * 120;
+        var mg = g.createRadialGradient(mx, my, 0, mx, my, mr);
+        mg.addColorStop(0, 'rgba(' + (110 + Math.random() * 40 | 0) + ',' + (190 + Math.random() * 40 | 0) + ',235,' + (0.08 + Math.random() * 0.14) + ')');
+        mg.addColorStop(1, 'rgba(110,190,235,0)');
+        g.fillStyle = mg; g.fillRect(mx - mr, my - mr, mr * 2, mr * 2);
+      }
+      // sunlit ripples
+      for (var i = 0; i < 240; i++) {
+        var y = Math.random() * 512, x = Math.random() * 512;
+        g.strokeStyle = 'rgba(' + (170 + Math.random() * 60 | 0) + ',' + (226 + Math.random() * 28 | 0) + ',255,' + (0.10 + Math.random() * 0.22) + ')';
+        g.lineWidth = 1 + Math.random() * 2.6;
+        g.beginPath(); g.moveTo(x, y);
+        g.quadraticCurveTo(x + 46, y - 7, x + 96, y); g.stroke();
+      }
+      // bright glints
+      for (var k = 0; k < 120; k++) {
+        g.fillStyle = 'rgba(248,254,255,' + (0.18 + Math.random() * 0.4) + ')';
+        g.fillRect(Math.random() * 512, Math.random() * 512, 1.6, 1.6);
+      }
+    }, { repeat: [3, 3] });
+  }
   function shimmerTexture() {
     return canvasTex(512, 512, function (g) {
       g.fillStyle = 'rgba(0,0,0,0)'; g.fillRect(0, 0, 512, 512);
@@ -4462,12 +4510,14 @@ window.TownScene = (function () {
     });
     var halo = glowSprite(0xbcaae8, 5.4, 0.1); g.add(halo);
     pulseGlow(halo, 0.1, 0.35, 0.35);
+    cloudMats.push({ m: m, m2: m2, halo: halo, haloBase: 0.1 });
     g.position.set(x, y, z); g.scale.setScalar(s || 1);
     return g;
   }
   function makeMoon() {
     var g = new THREE.Group();
     var halo = glowSprite(0xffe3ad, 9, 0.55); g.add(halo);
+    moonFade.push({ s: halo, base: 0.55 });
     var tex = canvasTex(256, 256, function (c) {
       c.clearRect(0, 0, 256, 256);
       c.fillStyle = '#fff5da';
@@ -4484,9 +4534,49 @@ window.TownScene = (function () {
     var disc = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, fog: false }));
     disc.scale.set(4.4, 4.4, 1);
     g.add(disc);
+    moonFade.push({ s: disc, base: 1 });
     g.position.set(-11.6, 6.8, -12.6);
     moonBaseY = 7.0;
     moonGrp = g;
+    return g;
+  }
+
+  /* warm morning / daytime sun, sitting where the light comes from */
+  function makeSun() {
+    var g = new THREE.Group();
+    var halo = glowSprite(0xffeec2, 15, 0.5); g.add(halo);
+    var halo2 = glowSprite(0xffd99a, 8.5, 0.38); g.add(halo2);
+    var tex = canvasTex(256, 256, function (c) {
+      c.clearRect(0, 0, 256, 256);
+      var rg = c.createRadialGradient(128, 128, 14, 128, 128, 122);
+      rg.addColorStop(0.00, 'rgba(255,255,250,1)');
+      rg.addColorStop(0.40, 'rgba(255,250,226,1)');
+      rg.addColorStop(0.58, 'rgba(255,238,186,.9)');
+      rg.addColorStop(0.80, 'rgba(255,220,150,.3)');
+      rg.addColorStop(1.00, 'rgba(255,208,130,0)');
+      c.fillStyle = rg;
+      c.beginPath(); c.arc(128, 128, 122, 0, Math.PI * 2); c.fill();
+      // soft 4-point flare
+      c.globalCompositeOperation = 'lighter';
+      for (var i = 0; i < 4; i++) {
+        c.save(); c.translate(128, 128); c.rotate(i * Math.PI / 2);
+        var lg = c.createLinearGradient(0, 0, 0, -126);
+        lg.addColorStop(0, 'rgba(255,250,230,.55)');
+        lg.addColorStop(0.35, 'rgba(255,244,210,.16)');
+        lg.addColorStop(1, 'rgba(255,240,205,0)');
+        c.fillStyle = lg;
+        c.beginPath();
+        c.moveTo(-5, 0); c.quadraticCurveTo(-2, -70, 0, -122); c.quadraticCurveTo(2, -70, 5, 0);
+        c.closePath(); c.fill(); c.restore();
+      }
+    });
+    var disc = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, fog: false }));
+    disc.scale.set(4.8, 4.8, 1);
+    g.add(disc);
+    sunFade.push({ s: halo, base: 0.5 }, { s: halo2, base: 0.38 }, { s: disc, base: 1 });
+    g.position.set(11.6, 5.4, -17.0);
+    g.visible = false;
+    sunGrp = g;
     return g;
   }
 
@@ -5492,10 +5582,51 @@ window.TownScene = (function () {
       }
     });
     var dome = new THREE.Mesh(new THREE.SphereGeometry(86, 32, 24),
-      new THREE.MeshBasicMaterial({ map: skyTex, side: THREE.BackSide, depthWrite: false, fog: false }));
+      new THREE.MeshBasicMaterial({ map: skyTex, side: THREE.BackSide, depthWrite: false, fog: false, transparent: true, opacity: 1 }));
     dome.rotation.y = 0.5;
+    dome.renderOrder = -2;
     scene.add(dome);
+    domeNight = dome;
     skyMat = dome.material;
+
+    /* bright, soft morning / daytime sky — pastel blue up top, cream near the horizon */
+    var dayTex = canvasTex(1024, 1024, function (g) {
+      var grd = g.createLinearGradient(0, 0, 0, 1024);
+      grd.addColorStop(0.00, '#57ade8');
+      grd.addColorStop(0.16, '#7ec8f2');
+      grd.addColorStop(0.34, '#a2dcf7');
+      grd.addColorStop(0.44, '#c9e9fb');
+      grd.addColorStop(0.495, '#c3e7fd');
+      grd.addColorStop(0.512, '#bfe6ff');
+      grd.addColorStop(0.522, '#ffe9d7');
+      grd.addColorStop(0.536, '#ffe2c9');
+      grd.addColorStop(0.552, '#f7ddc4');
+      grd.addColorStop(0.60, '#bfe6ff');
+      grd.addColorStop(1.00, '#a8d5f2');
+      g.fillStyle = grd; g.fillRect(0, 0, 1024, 1024);
+      // creamy low cloud puffs (the 3D clouds drift on top of these)
+      for (var n = 0; n < 34; n++) {
+        var nx = Math.random() * 1024, ny = 90 + Math.random() * 420;
+        var rr = 50 + Math.random() * 120;
+        var rg = g.createRadialGradient(nx, ny, 0, nx, ny, rr);
+        rg.addColorStop(0, 'rgba(255,255,255,' + (0.14 + Math.random() * 0.22) + ')');
+        rg.addColorStop(0.6, 'rgba(255,252,244,' + (0.06 + Math.random() * 0.1) + ')');
+        rg.addColorStop(1, 'rgba(255,250,240,0)');
+        g.fillStyle = rg; g.fillRect(nx - rr, ny - rr, rr * 2, rr * 2);
+      }
+      // warm haze band hugging the horizon line
+      var hz = g.createLinearGradient(0, 500, 0, 585);
+      hz.addColorStop(0, 'rgba(255,238,214,0)');
+      hz.addColorStop(0.45, 'rgba(255,232,196,.28)');
+      hz.addColorStop(1, 'rgba(255,240,214,0)');
+      g.fillStyle = hz; g.fillRect(0, 500, 1024, 85);
+    });
+    domeDay = new THREE.Mesh(new THREE.SphereGeometry(85.4, 32, 24),
+      new THREE.MeshBasicMaterial({ map: dayTex, side: THREE.BackSide, depthWrite: false, fog: false, transparent: true, opacity: 0 }));
+    domeDay.rotation.y = 0.5;
+    domeDay.renderOrder = -1;
+    domeDay.visible = false;
+    scene.add(domeDay);
 
     // twinkling stars
     var N = 520, pos = new Float32Array(N * 3);
@@ -5512,6 +5643,7 @@ window.TownScene = (function () {
       size: 0.34, map: starDotTexture(), transparent: true, opacity: 0.95,
       depthWrite: false, fog: false, blending: THREE.AdditiveBlending, sizeAttenuation: true
     }));
+    starsObj = stars;
     scene.add(stars);
   }
 
@@ -5519,6 +5651,8 @@ window.TownScene = (function () {
     waterTex = waterTexture();
     var wm = mat(0x1a3157, { map: waterTex, rough: 0.34, metal: 0.08, em: 0x0a1a2e, ei: 0.6 });
     wm.depthWrite = true;
+    waterMat = wm;
+    waterDayTex = dayWaterTexture();
     var water = new THREE.Mesh(new THREE.CircleGeometry(44, 72), wm);
     water.rotation.x = -Math.PI / 2;
     water.position.y = -1.12;
@@ -5545,6 +5679,7 @@ window.TownScene = (function () {
     }), -6, -1.1, -9);
     streak.rotation.x = -Math.PI / 2;
     streak.rotation.z = 0.3;
+    streakMesh = streak;
     scene.add(streak);
 
     // gentle rings lapping the island
@@ -5703,6 +5838,101 @@ window.TownScene = (function () {
     }
   }
 
+  /* ---------- day / night blend ---------- */
+  function fadeSprites(list, k) {
+    for (var i = 0; i < list.length; i++) {
+      var o = list[i];
+      o.s.material.opacity = Math.max(0, Math.min(1, o.base * k));
+    }
+  }
+  function lerpHex(a, b, k, out) {
+    out.setHex(a); _cB.setHex(b); out.lerp(_cB, k); return out;
+  }
+  /* k = 0 fully night ... 1 fully day; called on every change and while fading */
+  function applyDay(k) {
+    if (k < 0) k = 0; else if (k > 1) k = 1;
+    if (!_cA) return;
+    // sky domes crossfade
+    if (domeNight) { domeNight.material.opacity = 1 - k; domeNight.visible = k < 0.999; }
+    if (domeDay) { domeDay.material.opacity = k; domeDay.visible = k > 0.001; }
+    // stars, fireflies, moon, sun
+    if (starsObj) starsObj.material.opacity = 0.95 * (1 - k);
+    fadeSprites(moonFade, 1 - k);
+    fadeSprites(sunFade, k);
+    if (moonGrp) moonGrp.visible = k < 0.998;
+    if (sunGrp) sunGrp.visible = k > 0.002;
+    if (dayAmbient) dayAmbient.intensity = 0.40 * k;
+    var stEl = canvasEl && canvasEl.closest ? canvasEl.closest('.stage') : null;
+    if (stEl) stEl.classList.toggle('is-day', k > 0.5);
+    if (fireflies) fireflies.material.uniforms.uOpacity.value = 1 - k;
+    if (motes) motes.material.uniforms.uOpacity.value = 0.95 * (1 - 0.22 * k);
+    // lights
+    if (hemiLight) {
+      hemiLight.color.copy(lerpHex(DAYNIGHT.hemiSky[0], DAYNIGHT.hemiSky[1], k, _cA));
+      hemiLight.groundColor.copy(lerpHex(DAYNIGHT.hemiGround[0], DAYNIGHT.hemiGround[1], k, _cA));
+      hemiLight.intensity = 0.42 + 0.48 * k;
+    }
+    if (sunLight) {
+      sunLight.color.copy(lerpHex(DAYNIGHT.sunColor[0], DAYNIGHT.sunColor[1], k, _cA));
+      sunLight.intensity = 0.95 + 0.45 * k;
+      sunLight.position.set(-12 + 26 * k, 16 + 1 * k, 9 - 18 * k);
+    }
+    if (fillLight) fillLight.intensity = 0.38 * (1 - 0.72 * k);
+    for (var li = 0; li < lampLights.length; li++) {
+      lampLights[li].l.intensity = lampLights[li].base * (1 - 0.68 * k);
+    }
+    // air
+    if (scene && scene.fog) {
+      scene.fog.color.copy(lerpHex(DAYNIGHT.fogColor[0], DAYNIGHT.fogColor[1], k, _cA));
+      scene.fog.density = 0.0085 - 0.0029 * k;
+    }
+    // water
+    if (waterMat) {
+      waterMat.color.copy(lerpHex(DAYNIGHT.waterColor[0], DAYNIGHT.waterColor[1], k, _cA));
+      waterMat.emissive.copy(lerpHex(DAYNIGHT.waterEmi[0], DAYNIGHT.waterEmi[1], k, _cA));
+      waterMat.emissiveIntensity = 0.6 - 0.3 * k;
+      var wantDay = k > 0.5;
+      if (waterDayTex && wantDay !== waterTexIsDay) {
+        waterTexIsDay = wantDay;
+        waterMat.map = wantDay ? waterDayTex : waterTex;
+        waterMat.needsUpdate = true;
+      }
+    }
+    if (shimmerMesh) shimmerMesh.material.opacity = 0.42 - 0.16 * k;
+    if (streakMesh) { streakMesh.material.opacity = 0.5 * (1 - k); streakMesh.visible = k < 0.994; }
+    // daytime clouds turn fluffy white
+    for (var ci = 0; ci < cloudMats.length; ci++) {
+      var cm = cloudMats[ci];
+      cm.m.color.copy(lerpHex(0xc6b8ea, 0xffffff, k, _cA));
+      cm.m.emissive.copy(lerpHex(0x4d4076, 0xdcecff, k, _cA));
+      cm.m.opacity = 0.2 + 0.54 * k;
+      cm.m2.color.copy(lerpHex(0xd8cbee, 0xf6fbff, k, _cA));
+      cm.m2.emissive.copy(lerpHex(0x554380, 0xd8ecff, k, _cA));
+      cm.m2.opacity = 0.14 + 0.46 * k;
+    }
+    // windows stop glowing like lanterns in the sunshine
+    if (M && M.glass) M.glass.emissiveIntensity = 1.2 - 0.78 * k;
+    if (M && M.glassSoft) M.glassSoft.emissiveIntensity = 0.8 - 0.52 * k;
+    // the moss plaza and stone soak up the sun (tint > 1 brightens the baked texture)
+    if (groundMesh) {
+      groundMesh.material.color.setRGB(1 + 0.45 * k, 1 + 0.42 * k, 1 + 0.30 * k);
+    }
+  }
+
+  function setDayMode(isDay, opts) {
+    var auto = !!(opts && opts.auto);
+    if (!auto) manualDay = true;
+    var was = dayTarget;
+    dayTarget = isDay ? 1 : 0;
+    autoDayState = !!isDay;
+    if (opts && opts.instant && ready) { dayMix = dayTarget; dayFade = null; applyDay(dayMix); }
+    else if (ready) dayFade = { from: dayMix, to: dayTarget, t0: (window.performance && performance.now ? performance.now() : 0), dur: 900 };
+    if (dayTarget === was) return;
+    try {
+      window.dispatchEvent(new CustomEvent('town:daynight', { detail: { isDay: !!isDay } }));
+    } catch (e) { }
+  }
+
   /* ---------- scene ---------- */
   function buildScene() {
     scene = new THREE.Scene();
@@ -5723,23 +5953,27 @@ window.TownScene = (function () {
     initMats();
 
     // lights
-    scene.add(new THREE.HemisphereLight(0x7f6fc4, 0x1d1730, 0.42));
-    var moonLight = new THREE.DirectionalLight(0xdcd0ff, 0.95);
-    moonLight.position.set(-12, 16, 9);
-    moonLight.castShadow = true;
-    moonLight.shadow.mapSize.set(1024, 1024);
-    moonLight.shadow.camera.left = -14; moonLight.shadow.camera.right = 14;
-    moonLight.shadow.camera.top = 16; moonLight.shadow.camera.bottom = -12;
-    moonLight.shadow.camera.near = 1; moonLight.shadow.camera.far = 48;
-    moonLight.shadow.bias = -0.0016;
-    scene.add(moonLight);
+    hemiLight = new THREE.HemisphereLight(0x7f6fc4, 0x1d1730, 0.42);
+    scene.add(hemiLight);
+    sunLight = new THREE.DirectionalLight(0xdcd0ff, 0.95);
+    sunLight.position.set(-12, 16, 9);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.set(1024, 1024);
+    sunLight.shadow.camera.left = -14; sunLight.shadow.camera.right = 14;
+    sunLight.shadow.camera.top = 16; sunLight.shadow.camera.bottom = -12;
+    sunLight.shadow.camera.near = 1; sunLight.shadow.camera.far = 48;
+    sunLight.shadow.bias = -0.0016;
+    scene.add(sunLight);
     // a soft warm fill from the plaza lamps
-    var fill = new THREE.PointLight(0xffb277, 0.38, 15, 2);
-    fill.position.set(0, 2.6, 3.4);
-    scene.add(fill);
+    fillLight = new THREE.PointLight(0xffb277, 0.38, 15, 2);
+    fillLight.position.set(0, 2.6, 3.4);
+    scene.add(fillLight);
+    dayAmbient = new THREE.AmbientLight(0xfff3e4, 0);
+    scene.add(dayAmbient);
 
     makeSky();
     moonGrp = makeMoon(); scene.add(moonGrp);
+    sunGrp = makeSun(); scene.add(sunGrp);
     [[-17, 3.4, -10, 1.25], [16.5, 2.8, -9, 1.35], [-23, 5.2, 2, 1.5], [20, 5.6, -4, 1.4], [3, 7.4, -26, 1.7], [-9, 8.2, -22, 1.2]].forEach(function (c) {
       var cl = makeCloud(c[0], c[1], c[2], c[3]);
       clouds.push(cl); scene.add(cl);
@@ -5849,6 +6083,14 @@ window.TownScene = (function () {
     buildLabels();
     window.addEventListener('resize', resize);
     resize();
+
+    // every point lamp in the town dims in daylight
+    scene.traverse(function (o) {
+      if (o.isPointLight && o !== fillLight) lampLights.push({ l: o, base: o.intensity });
+    });
+    if (!_cA) { _cA = new THREE.Color(); _cB = new THREE.Color(); }
+    dayMix = dayTarget;   // start in the hour's own mode, no fade on first paint
+    applyDay(dayMix);
   }
 
   function buildLabels() {
@@ -6185,6 +6427,7 @@ window.TownScene = (function () {
 
     // water shimmer
     if (waterTex) { waterTex.offset.x = t * 0.006; waterTex.offset.y = t * 0.012; }
+    if (waterDayTex) { waterDayTex.offset.x = t * 0.006; waterDayTex.offset.y = t * 0.012; }
     if (shimmerTex) { shimmerTex.offset.x = -t * 0.01; shimmerTex.offset.y = t * 0.018; }
     for (var i = 0; i < waterfallMats.length; i++) {
       waterfallMats[i].offset.y = -t * 1.6 - i * 0.3;
@@ -6207,10 +6450,20 @@ window.TownScene = (function () {
     });
     if (moonGrp) moonGrp.position.y = moonBaseY + Math.sin(t * 0.25) * 0.12;
 
-    // every lamp, lantern, star and candle breathes
+    // day / night crossfade — wall-clock driven so a slow phone still lands on time
+    if (dayFade) {
+      var fm = Math.min(1, (performance.now() - dayFade.t0) / dayFade.dur);
+      var fe = fm < 0.5 ? 2 * fm * fm : 1 - Math.pow(-2 * fm + 2, 2) / 2;
+      dayMix = dayFade.from + (dayFade.to - dayFade.from) * fe;
+      if (fm >= 1) { dayMix = dayFade.to; dayFade = null; }
+      applyDay(dayMix);
+    }
+
+    // every lamp, lantern, star and candle breathes (and dims in the sunshine)
+    var glowDim = 1 - 0.6 * dayMix;
     for (var gi = 0; gi < glows.length; gi++) {
       var gg = glows[gi];
-      gg.s.material.opacity = Math.max(0.02, gg.base * (1 + Math.sin(t * gg.sp + gg.ph) * gg.amp));
+      gg.s.material.opacity = Math.max(0.02, gg.base * (1 + Math.sin(t * gg.sp + gg.ph) * gg.amp)) * glowDim;
     }
     for (var mi = 0; mi < moteMats.length; mi++) moteMats[mi].uniforms.uTime.value = t;
 
@@ -6245,6 +6498,11 @@ window.TownScene = (function () {
       camSph.radius = narrow ? 19.8 : 20.0;
       camSph.phi = narrow ? 1.13 : 1.17;
       if (target) target.y = narrow ? 1.66 : 1.55;
+      // the phone stage is narrower: tuck the sun in so it stays in the sky band
+      if (sunGrp) {
+        if (narrow) { sunGrp.position.set(2.6, 5.2, -18.5); sunGrp.scale.setScalar(0.8); }
+        else { sunGrp.position.set(11.6, 5.4, -17.0); sunGrp.scale.setScalar(1); }
+      }
     }
     placeCamera();
     var pr = Math.min(window.devicePixelRatio || 1, 2);
@@ -6331,6 +6589,8 @@ window.TownScene = (function () {
 
   function boot() {
     if (errored) errored = false;
+    // the town's own clock decides the mood before anything is drawn
+    setDayMode(localIsDay(), { auto: true });
     loadThree(function (err) {
       if (err) { showError('Three.js를 CDN에서 받아오지 못했어요. (오프라인일 수 있어요)'); return; }
       THREE = window.THREE;
@@ -6340,6 +6600,13 @@ window.TownScene = (function () {
         placeCamera();
         ready = true;
         animate();
+        // 한 시간이 넘어가며 낮/밤 경계(06시·18시)를 넘으면 스스로 바뀐다
+        if (autoTimer) clearInterval(autoTimer);
+        autoTimer = setInterval(function () {
+          if (manualDay) return;
+          var d = localIsDay();
+          if (d !== autoDayState) setDayMode(d, { auto: true });
+        }, 30000);
         var loader = document.getElementById('loader');
         setTimeout(function () { if (loader) loader.classList.add('gone'); }, 200);
         setTimeout(function () {
@@ -6366,6 +6633,9 @@ window.TownScene = (function () {
     hop: hop,
     setDecor: applyDecor,
     setName: function (n) { },
+    setDayMode: function (isDay, instant) { setDayMode(isDay, instant ? { instant: true } : undefined); },
+    isDay: function () { return dayTarget > 0.5; },
+    dayMix: function () { return dayMix; },
     setLevel: function (lv) {
       currentLevel = lv;
       if (catGroup) {
