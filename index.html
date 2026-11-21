@@ -1000,6 +1000,67 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
   .rail-btn span{font-size:8px}
   .pomo-time{font-size:40px}
 }
+
+/* ============ 🌦️ 날씨 배지 ============ */
+.stage-chips{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.weather-chip{cursor:pointer;gap:6px;font-variant-numeric:tabular-nums;transition:.16s;color:#e6dcff}
+.weather-chip:hover{background:rgba(24,18,38,.84);border-color:var(--stroke-2)}
+.weather-chip .wx-em{font-size:13px;line-height:1;display:inline-block;transform:translateY(-.5px)}
+.weather-chip .wx-t{font-weight:800;letter-spacing:.01em}
+.weather-chip.wx-mock{border-color:rgba(255,217,163,.45);box-shadow:0 0 0 1px rgba(255,217,163,.12)}
+.weather-chip.wx-off{opacity:.72}
+.wx-seg{display:flex;gap:4px;flex-wrap:wrap}
+.wx-seg button{flex:1;min-width:56px;padding:7px 6px;border-radius:9px;font-size:10.5px;font-weight:800;white-space:nowrap;
+  background:rgba(255,255,255,.05);border:1px solid var(--stroke);color:var(--muted);transition:.15s}
+.wx-seg button:hover{color:#fff;background:rgba(255,255,255,.09)}
+.wx-seg button.on{background:linear-gradient(180deg,#f8cfe2,#e9a8c8);color:#4a2a44;border-color:transparent}
+
+/* ============ 🎤 면접 연습 ============ */
+.iv-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.iv-filter{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.iv-f{padding:6px 11px;border-radius:999px;font-size:10.5px;font-weight:800;color:var(--muted);
+  background:rgba(255,255,255,.05);border:1px solid var(--stroke);transition:.15s}
+.iv-f:hover{color:#fff;background:rgba(255,255,255,.09)}
+.iv-f.on{background:rgba(188,170,232,.22);color:#e6dcff;border-color:rgba(188,170,232,.45)}
+.iv-list{display:flex;flex-direction:column;gap:10px}
+.iv-card{border:1px solid var(--stroke);border-radius:16px;padding:13px 14px;
+  background:linear-gradient(180deg,rgba(255,255,255,.048),rgba(255,255,255,.014));transition:.18s}
+.iv-card.running{border-color:rgba(255,217,163,.5);box-shadow:0 0 0 1px rgba(255,217,163,.16), 0 8px 22px -14px rgba(255,217,163,.7)}
+.iv-card.done{border-color:rgba(169,232,207,.38);background:linear-gradient(180deg,rgba(169,232,207,.085),rgba(169,232,207,.02))}
+.iv-hd{display:flex;align-items:flex-start;gap:9px}
+.iv-q{flex:1;min-width:0;font-size:12.5px;font-weight:800;line-height:1.55;word-break:keep-all}
+.iv-q .no{color:var(--muted-2);margin-right:5px;font-variant-numeric:tabular-nums}
+.iv-hd .chip{flex:none;margin-top:1px}
+.iv-row{display:flex;align-items:center;gap:7px;margin-top:10px;flex-wrap:wrap}
+.iv-row .btn{white-space:nowrap}
+.iv-br{display:none}
+.iv-count{font-size:12px;font-weight:800;color:var(--gold);font-variant-numeric:tabular-nums;min-width:42px;text-align:center}
+.iv-bar{height:4px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:8px}
+.iv-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#a9e8cf,#7fd6b4);transition:width .1s linear}
+.iv-card.running .iv-bar i{background:linear-gradient(90deg,#ffd9a3,#f2b96b)}
+.iv-card textarea.iv-memo{width:100%;margin-top:9px;min-height:58px;height:58px;resize:vertical;font-size:11.5px;line-height:1.65;
+  font-family:var(--font);border-radius:11px}
+.iv-tips{display:none;margin-top:9px;font-size:11px;line-height:1.75;color:#d2c8ea;
+  background:rgba(188,170,232,.09);border:1px solid rgba(188,170,232,.2);border-radius:12px;padding:10px 12px}
+.iv-tips.on{display:block}
+.iv-tips b{color:var(--gold);font-size:10.5px}
+.iv-tips ul{margin:6px 0 0;padding:0;list-style:none}
+.iv-tips li{position:relative;padding-left:11px;margin:3px 0;word-break:keep-all}
+.iv-tips li:before{content:'·';position:absolute;left:2px;color:var(--lav)}
+.iv-foot{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:14px}
+@media(max-width:768px){
+  .stage-chips{gap:6px}
+  .weather-chip .wx-em{font-size:12px}
+  .iv-top{gap:6px}
+  .iv-q{font-size:12px}
+  .iv-row{gap:6px}
+  .iv-row .btn{min-height:34px;padding:6px 10px;font-size:11px;border-radius:9px;flex:1 1 auto;justify-content:center}
+  .iv-br{display:block;flex:1 1 100%;height:0;margin:0;padding:0}
+  .iv-count{min-width:38px;font-size:11.5px}
+  .iv-card textarea.iv-memo{font-size:12px;height:54px;min-height:54px}
+  .iv-memo{font-size:12px}
+  .iv-tips{font-size:10.5px}
+}
 </style>
 </head>
 <body>
@@ -1149,7 +1210,10 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     <canvas id="scene3d"></canvas>
     <div class="stage-top">
       <div class="stage-chip"><i class="dot"></i><span id="townChip">용쥬네 · 저녁 산책 중</span></div>
-      <div class="stage-chip" id="clockChip">🌙 밤 11:44</div>
+      <div class="stage-chips">
+        <div class="stage-chip" id="clockChip">🌙 밤 11:44</div>
+        <button class="stage-chip weather-chip" id="weatherChip" type="button" title="서울 실시간 날씨 · 눌러서 미리보기"><span class="wx-em">🌡️</span><span class="wx-t">날씨 확인 중</span></button>
+      </div>
     </div>
     <div id="labels"></div>
     <div class="stage-hint" id="stageHint">땅을 클릭하면 용쥬가 걸어가요 · 드래그로 마을 돌리기 · 건물 클릭 🐾</div>
@@ -1370,9 +1434,10 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
       <button class="modal-x" data-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     </div>
     <div class="modal-bd">
-      <div class="tabs">
+      <div class="tabs" id="careerTabs">
         <button class="on" data-tab="resume">📄 이력서 체크리스트</button>
         <button data-tab="jobs">📮 채용 공고</button>
+        <button data-tab="interview">🎤 면접 연습</button>
       </div>
       <div id="tabResume">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
@@ -1393,6 +1458,18 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
         <div class="divider"></div>
         <div class="sec-title">🔎 바로 검색하기</div>
         <div class="qgrid" id="searchLinks" style="grid-template-columns:1fr 1fr"></div>
+      </div>
+      <div id="tabInterview" style="display:none">
+        <div class="iv-top">
+          <div class="muted" style="flex:1;min-width:200px">질문을 보고 <b>30초</b> 동안 소리 내어 답해보세요. 키워드만 메모해두면 다음에 이어서 볼 수 있어요 🐾</div>
+          <span class="chip mint" id="ivCount">0/0 완료</span>
+        </div>
+        <div class="iv-filter" id="ivFilter"></div>
+        <div class="iv-list" id="ivList"></div>
+        <div class="iv-foot">
+          <button class="btn sm ghost" id="btnIvReset">↺ 연습 기록 초기화</button>
+          <span class="muted">메모와 완료 표시는 다른 기기와도 함께 동기화돼요</span>
+        </div>
       </div>
     </div>
   </div>
@@ -1560,6 +1637,18 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
         <div><b>퀘스트 알림</b><span>매일 오전 7시 (크로버가 전달)</span></div>
         <div class="tg on" id="setNotif"><i></i></div>
       </div>
+      <div class="divider"></div>
+      <div class="sec-title">🌦️ 마을 날씨 <span class="n" id="wxModeBadge">자동 · 서울</span></div>
+      <p class="muted" style="margin-bottom:10px">서울 실제 날씨를 30분마다 불러와 마을 하늘에 비·눈을 내려요. (Open-Meteo · 무료 · API 키 없음)</p>
+      <div class="wx-seg" id="setWeatherSeg">
+        <button data-wx="">자동</button>
+        <button data-wx="clear">☀️ 맑음</button>
+        <button data-wx="cloud">☁️ 흐림</button>
+        <button data-wx="rain">🌧️ 비</button>
+        <button data-wx="snow">❄️ 눈</button>
+      </div>
+      <div class="kv" style="margin-top:10px"><span>지금 서울</span><b id="wxNow">—</b></div>
+      <div class="kv"><span>마지막 확인</span><b id="wxAgo">아직 없음</b></div>
       <div class="divider"></div>
       <div class="sec-title">📊 내 기록</div>
       <div class="kv"><span>레벨</span><b id="setLv">Lv.1</b></div>
@@ -2032,6 +2121,96 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
   ];
 
   /* ============================================================
+     🎤 면접 연습 — 네트워크·정보통신·인프라·보안 신입 단골 질문
+     ============================================================ */
+  var INTERVIEW = [
+    { id: 'osi', cat: '네트워크',
+      q: 'OSI 7계층과 TCP/IP 4계층은 어떻게 다르고, 왜 계층으로 나누나요?',
+      a: ['7계층 순서를 바로 말한다: 물리-데이터링크-네트워크-전송-세션-표현-응용',
+          'OSI는 표준 참조 모델(교육용), TCP/IP는 실제 인터넷 구현 4계층: 네트워크 접근-인터넷-전송-응용',
+          '대응: 응용·표현·세션 → 응용 / 전송 → 전송 / 네트워크 → 인터넷 / 데이터링크·물리 → 네트워크 접근',
+          '장점: 계층별 독립 교체 · 장애 범위 축소 (예: 통신이 안 되면 1~2계층부터, IP 문제면 3계층부터)'] },
+    { id: 'tcp3way', cat: '네트워크',
+      q: 'TCP 3-way handshake와 4-way 종료 과정을 설명해보세요.',
+      a: ['연결: SYN(x) → SYN+ACK(y, x+1) → ACK(y+1)로 양방향 전송 가능 확인',
+          '목적: 상대가 살아있는지 확인 + 시퀀스 번호 초기값 합의',
+          '종료: FIN → ACK → FIN → ACK, 각 방향을 따로 닫아서 4단계',
+          'TIME_WAIT: 마지막 ACK가 유실될 경우를 대비해 잠시 기다리는 상태'] },
+    { id: 'tcpudp', cat: '네트워크',
+      q: 'TCP와 UDP의 차이, 각각 어디에 쓰나요?',
+      a: ['TCP: 연결지향 · 순서/재전송 · 흐름·혼잡제어 → 신뢰성 (웹, 파일전송, 메일)',
+          'UDP: 비연결 · 재전송 없음 · 헤더 8바이트로 가벼움 → 속도·실시간 (DNS, VoIP, 스트리밍, 게임)',
+          'DNS처럼 목적에 따라 둘 다 쓰는 서비스도 있다: 보통 UDP, 큰 응답·영역전송은 TCP',
+          '“중요한 건 TCP, 빠른 게 중요한 건 UDP” 한 줄로 정리하면 전달력이 좋다'] },
+    { id: 'dns', cat: '네트워크',
+      q: 'DNS가 도메인을 IP로 바꾸는 과정을 설명해보세요.',
+      a: ['브라우저/OS 캐시 → 로컬 DNS(통신사) 캐시 확인 → 없으면 재귀 질의',
+          '루트 → .com(TLD) → 권한 네임서버 순서로 “누가 아느냐”를 따라간다 (반복 질의)',
+          '레코드: A(IPv4), AAAA(IPv6), CNAME(별칭), MX(메일), NS(네임서버), TXT(인증/SPF)',
+          'TTL이 지나야 변경이 반영되므로, 장애 때는 캐시를 먼저 의심'] },
+    { id: 'ipmacarp', cat: '네트워크',
+      q: 'IP 주소, MAC 주소, ARP의 역할 차이는 무엇인가요?',
+      a: ['IP: 논리 주소(3계층) — 네트워크 간 경로를 따라 목적지까지 찾아가는 주소',
+          'MAC: 물리 주소(2계층) — 같은 네트워크(브로드캐스트 도메인) 안에서 실제 전달',
+          'ARP: “이 IP를 가진 장비의 MAC이 뭔가”를 브로드캐스트로 묻고, 응답을 테이블에 저장',
+          '게이트웨이 밖으로 나갈 때는 목적지가 아니라 게이트웨이 MAC을 찾아 붙인다'] },
+    { id: 'routerswitch', cat: '네트워크',
+      q: '라우터와 스위치(L2/L3)는 무슨 차이가 있나요?',
+      a: ['스위치: 2계층, MAC 기반, 같은 네트워크 안에서 포트 간 프레임 전달 (MAC 테이블)',
+          '라우터: 3계층, IP·라우팅 테이블 기반, 서로 다른 네트워크 연결·경로 선택',
+          'L3 스위치: 내부망 고속 라우팅용 (VLAN 간 통신)',
+          '브로드캐스트 도메인을 나누는 기준은 라우터(또는 VLAN)'] },
+    { id: 'subnetvlan', cat: '네트워크',
+      q: '서브네팅과 VLAN을 설명하고, 왜 쓰는지 말해보세요.',
+      a: ['서브넷: 네트워크를 작은 단위로 나눠 주소 낭비·브로드캐스트를 줄인다 (/24 = 254 usable)',
+          '예: 192.168.10.0/26 → 64개씩 4개 서브넷, 각 62 usable',
+          'VLAN: 논리적으로 LAN을 분리 (부서·용도별), 같은 스위치에서도 별도 브로드캐스트 도메인',
+          'VLAN 간 통신은 L3 장비/라우팅 필요 → 보안·관리 편의성이 목적'] },
+    { id: 'fwids', cat: '보안',
+      q: '방화벽, IDS, IPS의 차이를 설명해보세요.',
+      a: ['방화벽: IP·포트·프로토콜 기준으로 통과/차단 — 경계에서 정책 집행',
+          'IDS: 트래픽을 복제해 침입을 “탐지·경보”만 한다 (인라인 아님)',
+          'IPS: 인라인으로 지나가며 “탐지 후 즉시 차단” (오탐 시 정상 트래픽 손실 위험)',
+          'NGFW: 애플리케이션 인식·IPS·URL 필터링을 한 장비에 통합한 형태'] },
+    { id: 'https', cat: '보안',
+      q: 'HTTPS(TLS) 핸드셰이크에서 실제로 무슨 일이 일어나나요?',
+      a: ['ClientHello(지원 암호군·랜덤) ↔ ServerHello + 서버 인증서 전달',
+          '인증서의 CA 서명·도메인·유효기간을 검증하고, 공개키로 premaster를 암호화해 전송',
+          '양쪽이 같은 대칭키(세션키)를 만들고, 이후 통신은 빠른 대칭키로 암호화',
+          '핵심: 공개키로 “키 교환”, 대칭키로 “데이터 암호화” + MAC/AEAD로 무결성 보장'] },
+    { id: 'linux', cat: '인프라',
+      q: '리눅스 서버가 느려졌을 때 어떤 명령어로 무엇부터 확인하나요?',
+      a: ['top/htop: CPU·메모리·부하(load average) 먼저',
+          'df -h(디스크), free -m(메모리·스왑), vmstat·iostat(IO 병목)',
+          'ss -lntp(리스닝 포트), ps -ef, journalctl -xe · tail -f /var/log/…',
+          '순서: 자원 → 프로세스 → 네트워크 → 로그, 그리고 최근 변경(배포·설정) 이력'] },
+    { id: 'incident', cat: '인프라',
+      q: '장애가 발생했을 때 대응 절차를 어떻게 가져가나요?',
+      a: ['인지·공유 → 영향 범위 파악(누가·무엇이) → 임시 복구(롤백·이중화 전환) 우선',
+          '원인 분석은 복구 후, 변경 이력·모니터링·로그 타임라인으로 좁힌다',
+          '보고: 현상·영향·현재 상태·다음 조치를 짧게, 추측과 사실을 구분해서',
+          '재발 방지: 모니터링 알람·문서·자동화로 남기고 회고 기록'] },
+    { id: 'ha', cat: '인프라',
+      q: '이중화(HA)와 단일 장애점(SPOF)을 설명해보세요.',
+      a: ['SPOF: 하나가 죽으면 전체가 멈추는 구성 요소 (전원, 스위치, DB 1대)',
+          '이중화: Active-Standby, Active-Active, LACP·VRRP·DB Replication 등',
+          '핵심은 장애를 없애는 것이 아니라, 한 개가 죽어도 서비스가 유지되게 만드는 것',
+          '이중화도 점검이 필요 — 페일오버 테스트·알람·정기 리허설'] },
+    { id: 'motiv', cat: '인성',
+      q: '지원 동기를 말씀해 주세요. (네트워크·인프라 직무)',
+      a: ['결론부터: “네트워크·인프라를 직접 다루며 장애를 해결하는 일이 재밌어서 지원했습니다”',
+          '근거: 전공·자격증·프로젝트 — OSI/TCP·IP 학습, GNS3·패킷 분석, 서버 구축 경험',
+          '회사 연결: 그 회사의 서비스·규모·기술 스택을 한 가지 구체적으로 언급',
+          '포부: 입사 후 1년 목표(운영 장비 숙지·장애 대응)와 3년 목표를 짧게'] },
+    { id: 'strength', cat: '인성',
+      q: '성격의 장단점을 말씀해 주세요.',
+      a: ['장점은 직무와 연결: “원인을 끝까지 파고드는 편” + 사례(로그를 비교해 설정 오류 찾기)',
+          '단점은 솔직하되 관리 방법까지: “혼자 오래 붙잡는 편 → 지금은 30분 규칙으로 공유·질문”',
+          '장단점은 반드시 경험 한 줄과 함께 (추상어만 나열하지 않기)',
+          '마무리: 입사 후에도 같은 방식으로 보완하겠다는 한 문장'] }
+  ];
+
+  /* ============================================================
      SHOP
      ============================================================ */
   var SHOP = [
@@ -2057,7 +2236,7 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     pad: pad, dayKey: dayKey, dayShift: dayShift, prettyDate: prettyDate, WD: WD,
     hash: hash, rng: rng, expForLevel: expForLevel,
     QUEST_POOL: QUEST_POOL, QUEST_TYPE: QUEST_TYPE, buildDailyQuests: buildDailyQuests, day1Quests: day1Quests,
-    TOPICS: TOPICS, RESUME: RESUME, JOBS: JOBS, JOB_SEARCH: JOB_SEARCH, SHOP: SHOP
+    TOPICS: TOPICS, RESUME: RESUME, JOBS: JOBS, JOB_SEARCH: JOB_SEARCH, SHOP: SHOP, INTERVIEW: INTERVIEW
   };
 })();
 </script>
@@ -2089,6 +2268,7 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     focusDate: '', focusMinToday: 0, sessionsToday: 0, sessionLog: {},
     quiz: {}, resume: {}, owned: [], customJobs: [], customTopics: [], labTopic: '',
     shop: { owned: [], equipped: [], placed: [], v: 0 }, jobStatus: {},
+    interviewNotes: {}, weatherMock: '',
     dailyStats: {}, dailySeeded: 0, badges: {},
     allClearDate: '', allClearCoins: 0, questHistory: [],
     todos: [], wrongNotes: [],
@@ -2623,6 +2803,122 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
   }
 
   /* ============================================================
+     🌦️ 서울 실제 날씨 (Open-Meteo · 무료 · API 키 없음)
+     ============================================================ */
+  var WX_URL = 'https://api.open-meteo.com/v1/forecast?latitude=37.5665&longitude=126.9780' +
+    '&current=temperature_2m,weather_code&timezone=Asia%2FSeoul';
+  var WX_TTL = 30 * 60 * 1000;          // 30분에 한 번만 새로 불러온다
+  var WX_STORE = 'yongjune.weather.v1';
+  var WX_LAST = 'yongjune.weather.last.v1';
+  var WX = { ts: 0, temp: null, code: null, ok: false };
+  try {
+    var wxRaw = localStorage.getItem(WX_STORE);
+    if (wxRaw) { var wxP = JSON.parse(wxRaw); if (wxP && typeof wxP === 'object') WX = wxP; }
+  } catch (e) { }
+  var WX_MOCK = {
+    clear: { emoji: '☀️', label: '맑음' },
+    cloud: { emoji: '☁️', label: '흐림' },
+    rain: { emoji: '🌧️', label: '비' },
+    snow: { emoji: '❄️', label: '눈' }
+  };
+  function wxInfo(code) {
+    code = Number(code);
+    if (code === 0) return { kind: 'clear', label: '맑음', emoji: '☀️' };
+    if (code === 1) return { kind: 'clear', label: '대체로 맑음', emoji: '🌤' };
+    if (code === 2) return { kind: 'cloud', label: '구름 조금', emoji: '⛅' };
+    if (code === 3) return { kind: 'cloud', label: '흐림', emoji: '☁️' };
+    if (code === 45 || code === 48) return { kind: 'fog', label: '안개', emoji: '🌫️' };
+    if (code >= 51 && code <= 57) return { kind: 'rain', label: '이슬비', emoji: '🌦️' };
+    if (code >= 61 && code <= 67) return { kind: 'rain', label: '비', emoji: '🌧️' };
+    if (code >= 71 && code <= 77) return { kind: 'snow', label: '눈', emoji: '❄️' };
+    if (code >= 80 && code <= 82) return { kind: 'rain', label: '소나기', emoji: '🌧️' };
+    if (code >= 85 && code <= 86) return { kind: 'snow', label: '눈 소나기', emoji: '🌨️' };
+    if (code >= 95) return { kind: 'rain', label: '천둥번개', emoji: '⛈️' };
+    return { kind: 'clear', label: '맑음', emoji: '☀️' };
+  }
+  function wxHasTemp() { return (typeof WX.temp === 'number' && isFinite(WX.temp)); }
+  function wxEffective() {
+    var mock = S.weatherMock || '';
+    if (mock && WX_MOCK[mock]) return { kind: mock, emoji: WX_MOCK[mock].emoji, label: WX_MOCK[mock].label, mock: true };
+    if (WX.code === null || WX.code === undefined) {
+      return { kind: 'clear', emoji: '🌡️', label: '날씨를 아직 못 불러왔어요', mock: false };
+    }
+    var i = wxInfo(WX.code);
+    return { kind: i.kind, emoji: i.emoji, label: i.label, mock: false };
+  }
+  function wxAgoText() {
+    if (!WX.ts) return '아직 없음';
+    var m = Math.floor((Date.now() - WX.ts) / 60000);
+    if (m < 1) return '방금';
+    if (m < 60) return m + '분 전';
+    return Math.floor(m / 60) + '시간 전';
+  }
+  function wxBadgeText(w) {
+    var t = wxHasTemp() ? (Math.round(WX.temp) + '°C') : '--';
+    var word = w.kind === 'rain' ? '비 ' : w.kind === 'snow' ? '눈 ' : '';
+    return word + t;
+  }
+  function paintWeatherChip() {
+    var w = wxEffective();
+    var el = document.getElementById('weatherChip');
+    if (el) {
+      el.innerHTML = '<span class="wx-em">' + w.emoji + '</span><span class="wx-t">' + esc(wxBadgeText(w)) + '</span>';
+      el.dataset.kind = w.kind;
+      el.dataset.mock = w.mock ? '1' : '';
+      el.classList.toggle('wx-mock', !!w.mock);
+      el.classList.toggle('wx-off', !wxHasTemp());
+      el.title = (w.mock ? '미리보기 · ' : '서울 실시간 · ') + w.label +
+        (wxHasTemp() ? ' · ' + Math.round(WX.temp) + '°C' : '') + (WX.ts ? ' · ' + wxAgoText() : '');
+    }
+    var now = document.getElementById('wxNow');
+    if (now) now.textContent = w.emoji + ' ' + w.label + (wxHasTemp() ? ' · ' + Math.round(WX.temp) + '°C' : '') + (w.mock ? ' (미리보기)' : '');
+    var ago = document.getElementById('wxAgo');
+    if (ago) ago.textContent = wxAgoText();
+    var badge = document.getElementById('wxModeBadge');
+    if (badge) badge.textContent = w.mock ? '미리보기' : '자동 · 서울';
+  }
+  function applyWeatherToScene() {
+    var w = wxEffective();
+    if (window.TownScene && TownScene.setWeather) { try { TownScene.setWeather(w.kind); } catch (e) { } }
+  }
+  var wxBusy = false;
+  function wxFresh() { return !!(WX.ts && (Date.now() - WX.ts) < WX_TTL); }
+  function fetchWeather(force) {
+    if (wxBusy) return Promise.resolve();
+    if (!force && wxFresh()) { paintWeatherChip(); applyWeatherToScene(); return Promise.resolve(); }
+    wxBusy = true;
+    var ctrl = window.AbortController ? new AbortController() : null;
+    var to = setTimeout(function () { if (ctrl) { try { ctrl.abort(); } catch (e) { } } }, 9000);
+    return fetch(WX_URL, { cache: 'no-store', signal: ctrl ? ctrl.signal : undefined })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (j) {
+        var c = j && j.current;
+        if (!c || c.temperature_2m === undefined || c.temperature_2m === null) throw new Error('응답 형식 오류');
+        WX = { ts: Date.now(), temp: Number(c.temperature_2m), code: Number(c.weather_code), ok: true };
+        try { localStorage.setItem(WX_STORE, JSON.stringify(WX)); } catch (e) { }
+      })
+      .catch(function (err) {
+        // 오프라인이거나 막혔을 때: 마지막으로 받아둔 날씨를 그대로 쓴다 (없으면 맑음 유지)
+        WX.ok = false;
+        if (window.console && console.warn) console.warn('[weather] 서울 날씨를 불러오지 못했어요:', (err && err.message) || err);
+      })
+      .then(function () {
+        wxBusy = false; clearTimeout(to);
+        try { localStorage.setItem(WX_LAST, String(Date.now())); } catch (e) { }
+        paintWeatherChip(); applyWeatherToScene();
+      });
+  }
+  function setWeatherMock(kind) {
+    kind = String(kind || '');
+    if (kind && !WX_MOCK[kind]) kind = '';
+    S.weatherMock = kind;
+    save();
+    paintWeatherChip(); applyWeatherToScene();
+    $$('#setWeatherSeg button').forEach(function (b) { b.classList.toggle('on', (b.dataset.wx || '') === kind); });
+    if (kind) toast('날씨 미리보기: <b>' + WX_MOCK[kind].emoji + ' ' + WX_MOCK[kind].label + '</b>', '', 1900);
+  }
+
+  /* ============================================================
      QUESTS
      ============================================================ */
   /* ---------- 이월(carry-over) 도우미 ---------- */
@@ -3141,6 +3437,143 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
         '<div class="job-ic">' + s.emoji + '</div><div class="job-b"><b>' + esc(s.name) + '</b>' +
         '<span>검색 결과 열기</span></div><div class="job-a"><span class="job-go">검색 →</span></div></a>';
     }).join('');
+  }
+
+  /* ============================================================
+     🎤 면접 연습 (30초 타이머 · 키워드 메모 · 모범 답변)
+     ============================================================ */
+  var IV_CAT = {
+    '네트워크': { chip: 'lav', em: '🌐' },
+    '보안': { chip: 'gold', em: '🛡️' },
+    '인프라': { chip: 'mint', em: '🖥️' },
+    '인성': { chip: 'gem', em: '🐾' }
+  };
+  var ivFilter = '전체';
+  var ivTimer = null, ivTick = null, ivSaveT = null;
+
+  function ivQs() { return (D.INTERVIEW || []); }
+  function ivNotes() {
+    if (!S.interviewNotes || typeof S.interviewNotes !== 'object' || Array.isArray(S.interviewNotes)) S.interviewNotes = {};
+    return S.interviewNotes;
+  }
+  function ivEntry(id) {
+    var n = ivNotes(), k = String(id), e = n[k];
+    if (!e || typeof e !== 'object') e = n[k] = { m: '', u: 0, done: 0 };
+    if (typeof e.m !== 'string') e.m = '';
+    if (!e.u) e.u = 0;
+    if (!e.done) e.done = 0;
+    return e;
+  }
+  function ivDoneCount() {
+    var n = ivNotes(), c = 0;
+    ivQs().forEach(function (q) { if (n[q.id] && n[q.id].done) c++; });
+    return c;
+  }
+  function ivTag(cat) {
+    var m = IV_CAT[cat] || { chip: '', em: '❓' };
+    return '<span class="chip ' + m.chip + '">' + m.em + ' ' + esc(cat) + '</span>';
+  }
+  function ivSaveSoon() {
+    if (ivSaveT) clearTimeout(ivSaveT);
+    ivSaveT = setTimeout(function () { ivSaveT = null; save(); }, 350);
+  }
+  function ivPaintTimer(id, left) {
+    left = Math.max(0, left);
+    var c = document.querySelector('[data-iv-count="' + id + '"]');
+    if (c) c.textContent = '00:' + D.pad(Math.ceil(left / 1000));
+    var bar = document.querySelector('[data-iv-bar="' + id + '"] i');
+    if (bar) bar.style.width = Math.max(0, Math.min(100, (1 - left / 30000) * 100)).toFixed(1) + '%';
+  }
+  function stopIvTimer() {
+    if (ivTick) { clearInterval(ivTick); ivTick = null; }
+    if (ivTimer) {
+      var old = ivTimer.id, card = document.querySelector('[data-iv="' + old + '"]');
+      if (card) {
+        card.classList.remove('running');
+        var b = card.querySelector('[data-iv-run]');
+        if (b) b.textContent = '⏱️ 30초 시작';
+      }
+      ivPaintTimer(old, 30000);
+    }
+    ivTimer = null;
+  }
+  function startIvTimer(id) {
+    stopIvTimer();
+    var card = document.querySelector('[data-iv="' + id + '"]');
+    if (card) {
+      card.classList.add('running');
+      var b = card.querySelector('[data-iv-run]');
+      if (b) b.textContent = '✋ 멈추기';
+    }
+    ivTimer = { id: id, endAt: Date.now() + 30000 };
+    ivPaintTimer(id, 30000);
+    ivTick = setInterval(function () {
+      if (!ivTimer) return;
+      var left = ivTimer.endAt - Date.now();
+      ivPaintTimer(ivTimer.id, left);
+      if (left > 0) return;
+      var cid = ivTimer.id;
+      if (ivTick) { clearInterval(ivTick); ivTick = null; }
+      ivTimer = null;
+      var c = document.querySelector('[data-iv="' + cid + '"]');
+      if (c) {
+        c.classList.remove('running');
+        var rb = c.querySelector('[data-iv-run]');
+        if (rb) rb.textContent = '⏱️ 다시 연습';
+      }
+      ivPaintTimer(cid, 0);
+      Audio.chime();
+      if (window.TownScene && TownScene.sparkle) TownScene.sparkle();
+      toast('⏰ 30초 끝! 답변을 마무리하고 키워드를 메모해보세요', 'gold', 3000);
+    }, 100);
+  }
+  function toggleIvDone(id) {
+    var e = ivEntry(id);
+    if (e.done) { e.done = 0; } else { e.done = Date.now(); }
+    e.u = Date.now();
+    save();
+    renderInterview();
+    if (e.done) {
+      var n = ivDoneCount(), t = ivQs().length;
+      Audio.chime();
+      toast('✓ 연습 완료! <b>' + n + '/' + t + '</b>' + (n >= t ? ' — 전부 끝냈어요 🎉' : ''), 'good', 2600);
+      if (n >= t && window.TownScene && TownScene.celebrate) TownScene.celebrate(true);
+    } else {
+      Audio.click();
+      toast('연습 표시를 지뤘어요', '', 1500);
+    }
+  }
+  function renderInterview() {
+    var list = $('#ivList');
+    if (!list) return;
+    var qs = ivQs(), done = ivDoneCount(), total = qs.length;
+    if ($('#ivCount')) $('#ivCount').textContent = done + '/' + total + ' 완료';
+    if ($('#ivFilter')) {
+      $('#ivFilter').innerHTML = ['전체', '네트워크', '보안', '인프라', '인성'].map(function (c) {
+        return '<button class="iv-f' + (ivFilter === c ? ' on' : '') + '" data-ivf="' + c + '">' +
+          (c === '전체' ? '전체 ' + total : ((IV_CAT[c] ? IV_CAT[c].em + ' ' : '') + esc(c))) + '</button>';
+      }).join('');
+    }
+    var shown = qs.filter(function (q) { return ivFilter === '전체' || q.cat === ivFilter; });
+    list.innerHTML = shown.map(function (q) {
+      var e = ivEntry(q.id);
+      var idx = qs.indexOf(q) + 1;
+      return '<div class="iv-card' + (e.done ? ' done' : '') + '" data-iv="' + esc(q.id) + '">' +
+        '<div class="iv-hd"><div class="iv-q"><span class="no">Q' + idx + '.</span>' + esc(q.q) + '</div>' + ivTag(q.cat) + '</div>' +
+        '<div class="iv-row">' +
+          '<button class="btn sm primary" data-iv-run="' + esc(q.id) + '">⏱️ 30초 시작</button>' +
+          '<span class="iv-count" data-iv-count="' + esc(q.id) + '">00:30</span>' +
+          '<span class="iv-br"></span>' +
+          '<button class="btn sm ghost" data-iv-tips="' + esc(q.id) + '">💡 모범 답변 포인트</button>' +
+          '<button class="btn sm ' + (e.done ? 'mint' : '') + '" data-iv-done="' + esc(q.id) + '">' + (e.done ? '✓ 연습 완료' : '✓ 연습 완료 표시') + '</button>' +
+        '</div>' +
+        '<div class="iv-bar" data-iv-bar="' + esc(q.id) + '"><i></i></div>' +
+        '<textarea class="input iv-memo" data-iv-memo="' + esc(q.id) + '" maxlength="400" placeholder="내 핵심 키워드 메모 — 답변에 꼭 넣고 싶은 단어 3~5개">' + esc(e.m) + '</textarea>' +
+        '<div class="iv-tips" data-iv-tipbox="' + esc(q.id) + '"><b>💡 모범 답변 포인트</b><ul>' +
+          q.a.map(function (p) { return '<li>' + esc(p) + '</li>'; }).join('') + '</ul></div>' +
+        '</div>';
+    }).join('');
+    stopIvTimer();
   }
 
   /* ============================================================
@@ -3748,7 +4181,7 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     'totalQuests', 'totalFocusMin', 'questsDate', 'quests', 'focusDate', 'focusMinToday', 'sessionsToday', 'sessionLog',
     'quiz', 'resume', 'owned', 'shop', 'jobStatus', 'dailyStats', 'dailySeeded', 'badges', 'streakDate', 'streakBest',
     'customJobs', 'customTopics', 'todos', 'wrongNotes', 'note', 'newsClosed', 'seenWelcome', 'sound', 'notif',
-    'questHistory', 'labTopic', 'allClearDate', 'allClearCoins'];
+    'questHistory', 'labTopic', 'allClearDate', 'allClearCoins', 'interviewNotes'];
   function buildPayload() {
     var data = {};
     SYNC_FIELDS.forEach(function (k) { if (S[k] !== undefined) data[k] = S[k]; });
@@ -3898,6 +4331,15 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     if (d.resume) {
       S.resume = S.resume || {};
       Object.keys(d.resume).forEach(function (k) { if (d.resume[k] && !S.resume[k]) { S.resume[k] = true; changed = true; } });
+    }
+    // 🎤 면접 연습: 문제별 키워드 메모·완료 표시는 더 최근에 고친 쪽을 따른다
+    if (d.interviewNotes && typeof d.interviewNotes === 'object') {
+      S.interviewNotes = S.interviewNotes || {};
+      Object.keys(d.interviewNotes).forEach(function (k) {
+        var r = d.interviewNotes[k]; if (!r || typeof r !== 'object') return;
+        var mine = S.interviewNotes[k];
+        if (!mine || (r.u || 0) > (mine.u || 0)) { S.interviewNotes[k] = r; changed = true; }
+      });
     }
     ['owned', 'customJobs'].forEach(function (key) {
       if (!Array.isArray(d[key])) return;
@@ -4171,6 +4613,9 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     $('#setQuiz').textContent = qc + '개';
     $('#setSound').classList.toggle('on', !!S.sound);
     $('#setNotif').classList.toggle('on', !!S.notif);
+    var wm = S.weatherMock || '';
+    $$('#setWeatherSeg button').forEach(function (b) { b.classList.toggle('on', (b.dataset.wx || '') === wm); });
+    paintWeatherChip();
   }
 
   /* ============================================================
@@ -4204,6 +4649,7 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
   function closeModal() {
     $('#modalBg').classList.remove('open');
     $$('.rail-btn').forEach(function (b) { b.classList.toggle('active', b.dataset.open === 'town'); });
+    stopIvTimer();
   }
 
   /* ============================================================
@@ -4611,15 +5057,69 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
       if (S.sessionsToday === 0) openModal('focus'); else openModal('quests');
     });
 
-    // career tabs
-    $$('.tabs button').forEach(function (b) {
+    // career tabs (이력서 · 채용 공고 · 면접 연습)
+    var CAREER_TABS = { resume: '#tabResume', jobs: '#tabJobs', interview: '#tabInterview' };
+    $$('#mCareer .tabs button').forEach(function (b) {
       b.addEventListener('click', function () {
-        $$('.tabs button').forEach(function (x) { x.classList.remove('on'); });
+        $$('#mCareer .tabs button').forEach(function (x) { x.classList.remove('on'); });
         b.classList.add('on');
-        $('#tabResume').style.display = b.dataset.tab === 'resume' ? '' : 'none';
-        $('#tabJobs').style.display = b.dataset.tab === 'jobs' ? '' : 'none';
+        Object.keys(CAREER_TABS).forEach(function (k) {
+          var el = $(CAREER_TABS[k]);
+          if (el) el.style.display = (b.dataset.tab === k ? '' : 'none');
+        });
+        if (b.dataset.tab === 'interview') renderInterview();
         Audio.click();
       });
+    });
+
+    // 🎤 면접 연습: 필터 · 30초 타이머 · 모범 답변 · 완료 표시 · 메모
+    document.addEventListener('click', function (e) {
+      if (!e.target.closest) return;
+      var f = e.target.closest('[data-ivf]');
+      if (f) { ivFilter = f.dataset.ivf; renderInterview(); Audio.click(); return; }
+      var r = e.target.closest('[data-iv-run]');
+      if (r) {
+        var rid = r.dataset.ivRun;
+        if (ivTimer && ivTimer.id === rid) { stopIvTimer(); toast('타이머를 멈췄어요', '', 1400); }
+        else { startIvTimer(rid); }
+        Audio.click();
+        return;
+      }
+      var t = e.target.closest('[data-iv-tips]');
+      if (t) {
+        var box = document.querySelector('[data-iv-tipbox="' + t.dataset.ivTips + '"]');
+        if (box) {
+          var on = box.classList.toggle('on');
+          t.classList.toggle('on', on);
+          t.textContent = on ? '🙈 모범 답변 접기' : '💡 모범 답변 포인트';
+        }
+        Audio.click();
+        return;
+      }
+      var d = e.target.closest('[data-iv-done]');
+      if (d) { toggleIvDone(d.dataset.ivDone); return; }
+      var rs = e.target.closest('#btnIvReset');
+      if (rs) {
+        if (!confirm('면접 연습 기록(키워드 메모·완료 표시)을 모두 지울까요?')) return;
+        S.interviewNotes = {}; save(); renderInterview();
+        toast('면접 연습 기록을 비웠어요', '', 2000);
+        return;
+      }
+    });
+    document.addEventListener('input', function (e) {
+      var m = e.target.closest && e.target.closest('[data-iv-memo]');
+      if (!m) return;
+      var en = ivEntry(m.dataset.ivMemo);
+      en.m = m.value;
+      en.u = Date.now();
+      ivSaveSoon();
+    });
+    // 입력 중에 창을 닫아도 잃지 않게 — 포커스를 읽으면 바로 저장한다
+    document.addEventListener('change', function (e) {
+      var m = e.target.closest && e.target.closest('[data-iv-memo]');
+      if (!m) return;
+      if (ivSaveT) { clearTimeout(ivSaveT); ivSaveT = null; }
+      save();
     });
 
     // 지원 현황 (상태 · 메모)
@@ -4673,6 +5173,15 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
       if (S.sound) { Audio.ensure(); Audio.soft(); } else Audio.stopAmbient();
     });
     $('#setNotif').addEventListener('click', function () { S.notif = !S.notif; save(); renderSettings(); });
+    // 🌦️ 날씨 미리보기 (자동 / 맑음 / 흐림 / 비 / 눈)
+    $$('#setWeatherSeg button').forEach(function (b) {
+      b.addEventListener('click', function () { setWeatherMock(b.dataset.wx || ''); });
+    });
+    if ($('#weatherChip')) $('#weatherChip').addEventListener('click', function () {
+      fetchWeather(false);
+      openModal('settings');
+      toast('날씨는 여기서 미리보기로 바꿔볼 수 있어요 🌦️', '', 2200);
+    });
     $('#btnExport').addEventListener('click', function () {
       var blob = new Blob([JSON.stringify(S, null, 2)], { type: 'application/json' });
       var a = document.createElement('a');
@@ -4726,6 +5235,15 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     paintHud();
     checkBadges(true);
     paintClock(); setInterval(paintClock, 20000);
+    // 🌦️ 서울 날씨: 첫 로드에 한 번, 이후 30분에 한 번씩(캐시) + 창을 다시 열면 확인
+    paintWeatherChip();
+    setTimeout(function () { fetchWeather(false); }, 900);
+    setInterval(function () { if (!document.hidden) fetchWeather(false); }, 5 * 60 * 1000);
+    setInterval(function () { paintWeatherChip(); }, 60 * 1000);
+    window.addEventListener('online', function () { if (!WX.ts || (Date.now() - WX.ts) > 2 * 60 * 1000) fetchWeather(true); });
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible') fetchWeather(false);
+    });
     renderSideQuests();
     renderSideTodo();
     renderNews();
@@ -4753,6 +5271,7 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     if (window.TownScene && TownScene.init) {
       try { TownScene.init($('#scene3d')); } catch (e) { console.error(e); }
     }
+    applyWeatherToScene();
   }
 
   window.__TOWN_APP = {
@@ -4760,6 +5279,18 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     audio: Audio,
     openModal: openModal, closeModal: closeModal, renderShop: renderShop, renderCareer: renderCareer,
     renderTodo: renderTodo, renderLab: renderLab, setLabTab: setLabTab,
+    renderInterview: renderInterview,
+    weather: {
+      refresh: function (force) { return fetchWeather(!!force); },
+      mock: setWeatherMock,
+      info: function () {
+        return {
+          ts: WX.ts, temp: WX.temp, code: WX.code, ok: WX.ok, busy: wxBusy,
+          effective: wxEffective(), badge: (document.getElementById('weatherChip') || {}).textContent || '',
+          scene: (window.TownScene && TownScene.weather) ? TownScene.weather() : null
+        };
+      }
+    },
     getState: function () { return S; },
     sync: {
       now: function () { return syncNow(false); },
@@ -4806,6 +5337,15 @@ window.TownScene = (function () {
   /* ---------- day / night state ---------- */
   var domeNight = null, domeDay = null, dayMix = 0, dayTarget = 0, manualDay = false, autoDayState = null, autoTimer = null, dayFade = null;
   var starsObj = null, waterMat = null, streakMesh = null, sunGrp = null, waterDayTex = null, waterTexIsDay = false;
+  /* ---------- real weather (서울 · 비/눈/흐림) ---------- */
+  var wxWant = 'clear', wxKind = 'clear', wxMix = 0, wxTarget = 0, wxReady = false, wxFade = null;
+  var wxDome = null, wxDomeMat = null, wxDomeTex = {}, wxRain = null, wxSnow = null;
+  var WX_TINT = {
+    rain: { top: '#28384d', mid: '#44576e', low: '#7b8993', op: 0.60 },
+    snow: { top: '#586882', mid: '#94a6be', low: '#dde6f0', op: 0.50 },
+    cloud: { top: '#484c5e', mid: '#787c8e', low: '#c3c6ce', op: 0.40 },
+    fog: { top: '#676c7a', mid: '#99a0aa', low: '#d8dbe0', op: 0.48 }
+  };
   var moonFade = [], sunFade = [], cloudMats = [], lampLights = [];
   var hemiLight = null, sunLight = null, fillLight = null, dayAmbient = null;
   var _cA = null, _cB = null;
@@ -6806,6 +7346,157 @@ window.TownScene = (function () {
     scene.add(stars);
   }
 
+  /* ---------- weather: tint dome + 3D rain drops / snowflakes ---------- */
+  function wxDomeTexture(kind) {
+    var t = WX_TINT[kind] || WX_TINT.cloud;
+    return canvasTex(512, 512, function (g, w, h) {
+      var grd = g.createLinearGradient(0, 0, 0, h);
+      grd.addColorStop(0, t.top); grd.addColorStop(0.55, t.mid); grd.addColorStop(1, t.low);
+      g.fillStyle = grd; g.fillRect(0, 0, w, h);
+      // soft cloud bellies so the overcast sky is not a flat wall of color
+      for (var i = 0; i < 30; i++) {
+        var x = Math.random() * w, y = 30 + Math.random() * 250, r = 60 + Math.random() * 140;
+        var rg = g.createRadialGradient(x, y, 0, x, y, r);
+        rg.addColorStop(0, 'rgba(255,255,255,.055)');
+        rg.addColorStop(1, 'rgba(255,255,255,0)');
+        g.fillStyle = rg; g.fillRect(x - r, y - r, r * 2, r * 2);
+      }
+    });
+  }
+
+  function snowDotTexture() {
+    return canvasTex(64, 64, function (g) {
+      var grd = g.createRadialGradient(32, 32, 0, 32, 32, 30);
+      grd.addColorStop(0, 'rgba(255,255,255,1)');
+      grd.addColorStop(0.5, 'rgba(255,255,255,.78)');
+      grd.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = grd; g.beginPath(); g.arc(32, 32, 31, 0, Math.PI * 2); g.fill();
+    });
+  }
+
+  function makeWeather() {
+    wxDomeMat = new THREE.MeshBasicMaterial({
+      color: 0xffffff, side: THREE.BackSide, depthWrite: false, fog: false, transparent: true, opacity: 0
+    });
+    wxDome = new THREE.Mesh(new THREE.SphereGeometry(84.6, 32, 24), wxDomeMat);
+    wxDome.rotation.y = 0.5;
+    wxDome.renderOrder = -0.5;
+    wxDome.visible = false;
+    scene.add(wxDome);
+
+    // gentle falling rain — short line segments
+    var N = 900;
+    var pos = new Float32Array(N * 6), spd = new Float32Array(N);
+    for (var i = 0; i < N; i++) {
+      var a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * 14.5;
+      var x = Math.cos(a) * r, z = Math.sin(a) * r, y = -1 + Math.random() * 19;
+      pos[i * 6] = x; pos[i * 6 + 1] = y; pos[i * 6 + 2] = z;
+      pos[i * 6 + 3] = x; pos[i * 6 + 4] = y - 0.5; pos[i * 6 + 5] = z;
+      spd[i] = 10 + Math.random() * 7;
+    }
+    var rg = new THREE.BufferGeometry();
+    rg.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    wxRain = new THREE.LineSegments(rg, new THREE.LineBasicMaterial({
+      color: 0xbfe0ff, transparent: true, opacity: 0, depthWrite: false, fog: true
+    }));
+    wxRain.frustumCulled = false;
+    wxRain.userData = { spd: spd };
+    wxRain.visible = false;
+    scene.add(wxRain);
+
+    // gentle drifting snow
+    var SN = 720;
+    var sp = new Float32Array(SN * 3), sv = new Float32Array(SN), sph = new Float32Array(SN);
+    for (var j = 0; j < SN; j++) {
+      var a2 = Math.random() * Math.PI * 2, r2 = Math.sqrt(Math.random()) * 15;
+      sp[j * 3] = Math.cos(a2) * r2;
+      sp[j * 3 + 1] = -1 + Math.random() * 18;
+      sp[j * 3 + 2] = Math.sin(a2) * r2;
+      sv[j] = 0.45 + Math.random() * 0.75;
+      sph[j] = Math.random() * Math.PI * 2;
+    }
+    var sg = new THREE.BufferGeometry();
+    sg.setAttribute('position', new THREE.BufferAttribute(sp, 3));
+    wxSnow = new THREE.Points(sg, new THREE.PointsMaterial({
+      size: 0.3, map: snowDotTexture(), transparent: true, opacity: 0, depthWrite: false,
+      sizeAttenuation: true, color: 0xffffff, fog: true
+    }));
+    wxSnow.frustumCulled = false;
+    wxSnow.userData = { v: sv, ph: sph };
+    wxSnow.visible = false;
+    scene.add(wxSnow);
+
+    // 화면이 뜨기 전에 날씨가 먼저 정해졌을 수 있다 (그림 받자마자 바로 맞춤)
+    if (wxWant !== 'clear') {
+      wxKind = wxWant;
+      if (!wxDomeTex[wxWant]) wxDomeTex[wxWant] = wxDomeTexture(wxWant);
+      wxDomeMat.map = wxDomeTex[wxWant];
+      wxDomeMat.needsUpdate = true;
+    }
+
+    wxReady = true;
+  }
+
+  function updateWeather(dt, t) {
+    if (!wxReady) return;
+    // 페이드는 벽시계 기준 — 프레임이 끊기는 폰에서도 1.2초에 맞게 끝난다
+    if (wxFade) {
+      var fm = Math.min(1, (performance.now() - wxFade.t0) / wxFade.dur);
+      var fe = fm < 0.5 ? 2 * fm * fm : 1 - Math.pow(-2 * fm + 2, 2) / 2;
+      wxMix = wxFade.from + (wxFade.to - wxFade.from) * fe;
+      if (fm >= 1) { wxMix = wxFade.to; wxFade = null; }
+      applyDay(dayMix);
+    }
+    var isRain = wxKind === 'rain', isSnow = wxKind === 'snow';
+    if (wxRain) {
+      wxRain.visible = isRain && wxMix > 0.02;
+      wxRain.material.opacity = 0.5 * wxMix;
+      if (wxRain.visible) {
+        var ra = wxRain.geometry.attributes.position, arr = ra.array, spdArr = wxRain.userData.spd;
+        for (var i = 0, n = spdArr.length; i < n; i++) {
+          var o = i * 6, fall = spdArr[i] * dt;
+          arr[o + 1] -= fall; arr[o + 4] -= fall;
+          arr[o] += 0.55 * dt; arr[o + 3] += 0.55 * dt;
+          if (arr[o + 4] < -1.2) {
+            var a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * 14.5;
+            var x = Math.cos(a) * r, z = Math.sin(a) * r, len = 0.4 + spdArr[i] * 0.03;
+            arr[o] = x; arr[o + 1] = 17 + Math.random() * 3; arr[o + 2] = z;
+            arr[o + 3] = x; arr[o + 4] = arr[o + 1] - len; arr[o + 5] = z;
+          }
+        }
+        ra.needsUpdate = true;
+      }
+    }
+    if (wxSnow) {
+      wxSnow.visible = isSnow && wxMix > 0.02;
+      wxSnow.material.opacity = 0.92 * wxMix;
+      if (wxSnow.visible) {
+        var sa = wxSnow.geometry.attributes.position, sarr = sa.array;
+        var sv = wxSnow.userData.v, sph = wxSnow.userData.ph;
+        for (var j = 0, m = sv.length; j < m; j++) {
+          var o2 = j * 3;
+          sarr[o2] += Math.sin(t * 0.8 + sph[j]) * 0.5 * dt + 0.16 * dt;
+          sarr[o2 + 1] -= sv[j] * dt;
+          sarr[o2 + 2] += Math.cos(t * 0.6 + sph[j]) * 0.4 * dt;
+          if (sarr[o2 + 1] < -1.1) {
+            var a3 = Math.random() * Math.PI * 2, r3 = Math.sqrt(Math.random()) * 15;
+            sarr[o2] = Math.cos(a3) * r3;
+            sarr[o2 + 1] = 16 + Math.random() * 2;
+            sarr[o2 + 2] = Math.sin(a3) * r3;
+          }
+        }
+        sa.needsUpdate = true;
+      }
+    }
+    if (wxDome) {
+      wxDome.visible = wxMix > 0.004;
+      var base = (WX_TINT[wxKind] && WX_TINT[wxKind].op) || 0.4;
+      wxDomeMat.opacity = base * wxMix * (0.55 + 0.45 * dayMix);
+      var l = 0.42 + 0.58 * dayMix;
+      wxDomeMat.color.setRGB(l, l, l);
+    }
+  }
+
   function makeWater() {
     waterTex = waterTexture();
     var wm = mat(0x1a3157, { map: waterTex, rough: 0.34, metal: 0.08, em: 0x0a1a2e, ei: 0.6 });
@@ -7015,9 +7706,10 @@ window.TownScene = (function () {
     if (domeNight) { domeNight.material.opacity = 1 - k; domeNight.visible = k < 0.999; }
     if (domeDay) { domeDay.material.opacity = k; domeDay.visible = k > 0.001; }
     // stars, fireflies, moon, sun
-    if (starsObj) starsObj.material.opacity = 0.95 * (1 - k);
-    fadeSprites(moonFade, 1 - k);
-    fadeSprites(sunFade, k);
+    if (starsObj) starsObj.material.opacity = 0.95 * (1 - k) * (1 - 0.9 * wxMix);
+    var wxHide = 1 - 0.8 * wxMix;   // 비·눈이면 해/달이 구름 뒤로 숨는다
+    fadeSprites(moonFade, (1 - k) * wxHide);
+    fadeSprites(sunFade, k * wxHide);
     if (moonGrp) moonGrp.visible = k < 0.998;
     if (sunGrp) sunGrp.visible = k > 0.002;
     if (dayAmbient) dayAmbient.intensity = 0.40 * k;
@@ -7076,6 +7768,14 @@ window.TownScene = (function () {
     if (groundMesh) {
       groundMesh.material.color.setRGB(1 + 0.45 * k, 1 + 0.42 * k, 1 + 0.30 * k);
     }
+    // 비·눈·흐림이면 해가 약해지고 공기가 탁해진다 (3D 날씨 연동)
+    if (wxMix > 0.001) {
+      var wxDim = 1 - 0.32 * wxMix * (wxKind === 'rain' ? 1 : wxKind === 'snow' ? 0.85 : 0.6);
+      if (hemiLight) hemiLight.intensity *= wxDim;
+      if (sunLight) sunLight.intensity *= wxDim;
+      if (fillLight) fillLight.intensity *= (1 - 0.22 * wxMix);
+      if (scene && scene.fog) scene.fog.density *= (1 + 0.55 * wxMix);
+    }
   }
 
   function setDayMode(isDay, opts) {
@@ -7131,6 +7831,7 @@ window.TownScene = (function () {
     scene.add(dayAmbient);
 
     makeSky();
+    makeWeather();
     moonGrp = makeMoon(); scene.add(moonGrp);
     sunGrp = makeSun(); scene.add(sunGrp);
     [[-17, 3.4, -10, 1.25], [16.5, 2.8, -9, 1.35], [-23, 5.2, 2, 1.5], [20, 5.6, -4, 1.4], [3, 7.4, -26, 1.7], [-9, 8.2, -22, 1.2]].forEach(function (c) {
@@ -7637,6 +8338,9 @@ window.TownScene = (function () {
       if (kk >= 1) { scene.remove(s); s.material.dispose(); sparkleList.splice(k, 1); }
     }
 
+    // real weather: rain / snow particles + overcast tint fade in and out
+    updateWeather(dt, t);
+
     updateLabels();
     renderer.render(scene, camera);
   }
@@ -7767,6 +8471,9 @@ window.TownScene = (function () {
         bindControls();
         placeCamera();
         ready = true;
+        // scene이 이미 받아둔 날씨가 있으면 로딩 직후 바로 맞춰둔다 (페이드 없이)
+        wxMix = wxTarget;
+        applyDay(dayMix);
         animate();
         // 한 시간이 넘어가며 낮/밤 경계(06시·18시)를 넘으면 스스로 바뀐다
         if (autoTimer) clearInterval(autoTimer);
@@ -7807,6 +8514,31 @@ window.TownScene = (function () {
     setWear: applyWear,
     setName: function (n) { },
     setDayMode: function (isDay, instant) { setDayMode(isDay, instant ? { instant: true } : undefined); },
+    setWeather: function (kind) {
+      kind = String(kind || 'clear');
+      if (['clear', 'cloud', 'fog', 'rain', 'snow'].indexOf(kind) < 0) kind = 'clear';
+      if (kind === wxWant) return;
+      wxWant = kind;
+      wxTarget = kind === 'clear' ? 0 : 1;
+      if (kind !== 'clear') {
+        wxKind = kind;
+        if (wxDomeMat) {
+          if (!wxDomeTex[kind]) wxDomeTex[kind] = wxDomeTexture(kind);
+          wxDomeMat.map = wxDomeTex[kind];
+          wxDomeMat.needsUpdate = true;
+        }
+      }
+      if (!wxReady) return;
+      wxFade = { from: wxMix, to: wxTarget, t0: performance.now(), dur: 1200 };
+      applyDay(dayMix);
+    },
+    weather: function () {
+      return {
+        want: wxWant, kind: wxKind, target: wxTarget, mix: Math.round(wxMix * 1000) / 1000, ready: wxReady,
+        dome: !!(wxDome && wxDome.visible), domeOpacity: wxDomeMat ? Math.round(wxDomeMat.opacity * 1000) / 1000 : 0,
+        rain: !!(wxRain && wxRain.visible), snow: !!(wxSnow && wxSnow.visible)
+      };
+    },
     isDay: function () { return dayTarget > 0.5; },
     dayMix: function () { return dayMix; },
     setLevel: function (lv) {
