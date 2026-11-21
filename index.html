@@ -724,6 +724,26 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
 .tg i{position:absolute;top:2px;left:2px;width:19px;height:19px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 2px 5px rgba(0,0,0,.35)}
 .tg.on{background:linear-gradient(90deg,#c9a6f0,#ee9dc4)}
 .tg.on i{left:21px}
+.ckrow{display:flex;align-items:flex-start;gap:9px;margin-top:10px;padding:10px 12px;border-radius:12px;
+  background:rgba(255,255,255,.03);border:1px solid var(--stroke);cursor:pointer;
+  font-size:10.5px;font-weight:700;color:var(--muted-2);line-height:1.65}
+.ckrow input{appearance:none;-webkit-appearance:none;width:18px;height:18px;flex:none;margin:1px 0 0;padding:0;
+  border-radius:6px;border:1.6px solid rgba(255,255,255,.28);background:rgba(10,7,18,.5);position:relative;cursor:pointer}
+.ckrow input:checked{background:linear-gradient(90deg,#c9a6f0,#ee9dc4);border-color:transparent}
+.ckrow input:checked::after{content:'';position:absolute;left:4.8px;top:1.4px;width:5px;height:10px;
+  border:solid #1b1526;border-width:0 2.2px 2.2px 0;transform:rotate(42deg)}
+.ckrow span{flex:1}
+.ckrow b{color:#fff;font-size:11.5px;display:block;margin-bottom:1px}
+.hist-list{max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:9px;padding-right:4px}
+.hist-day{border:1px solid var(--stroke);border-radius:12px;background:rgba(255,255,255,.03);padding:9px 11px}
+.hist-day-hd{display:flex;justify-content:space-between;gap:8px;align-items:baseline;margin-bottom:5px;flex-wrap:wrap}
+.hist-day-hd b{font-size:11.5px;font-weight:800;color:#e8defc}
+.hist-day-hd span{font-size:9.5px;font-weight:800;color:var(--gold)}
+.hist-item{display:flex;align-items:center;gap:7px;padding:5px 0;border-top:1px dashed var(--stroke)}
+.hist-item:first-of-type{border-top:0}
+.hist-t{flex:1;font-size:11.5px;font-weight:700;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hist-r{font-size:10px;font-weight:800;color:var(--muted-2);white-space:nowrap}
+.hist-empty{font-size:11px;font-weight:700;color:var(--muted-2);line-height:1.8}
 .kv{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px dashed var(--stroke);font-size:11.5px}
 .kv:last-child{border-bottom:0}
 .kv span{color:var(--muted-2);font-weight:700}
@@ -1187,6 +1207,10 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
       <div class="hint-box" style="margin-top:12px">
         <b>퀘스트 알림은 매일 오전 7시</b>예요. 크로버에게 "오늘 퀘스트 줘"라고 하면 새 퀘스트를 만들어서 여기에 바로 불러올 수 있는 코드를 보내줘요.
       </div>
+      <div class="divider"></div>
+      <div class="sec-title">📜 지난 퀘스트 기록 <span class="n" id="questHistN">0</span></div>
+      <p class="muted" style="margin:-4px 0 10px">끝낸 퀘스트는 날짜별로 여기에 쌓여요. 내가 뭐 했는지 한눈에 볼 수 있어요 🐾</p>
+      <div class="hist-list" id="questHistory"></div>
     </div>
   </div>
 
@@ -1480,7 +1504,7 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
   <div class="modal" id="mImport" style="display:none">
     <div class="modal-hd">
       <div class="micon">✨</div>
-      <div><h2>크로버 데일리 퀘스트</h2><p>크로버가 보내준 코드를 붙여넣으면 오늘 퀘스트가 바뀌어요</p></div>
+      <div><h2>크로버 데일리 퀘스트</h2><p>받은 코드를 붙여넣으면 새 퀘스트가 더해져요 · 끝내지 못한 퀘스트는 그대로 이어져요</p></div>
       <button class="modal-x" data-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     </div>
     <div class="modal-bd">
@@ -1488,6 +1512,11 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
         <label>받은 코드 붙여넣기</label>
         <textarea class="input" id="importText" placeholder='{ "quests": [ { "title": "OSPF 라우팅 정리", "desc": "교재 3장", "type": "study", "exp": 30, "coins": 15 } ] }'></textarea>
       </div>
+      <div class="hint-box" id="impKeepNote" style="display:none;margin-bottom:12px"></div>
+      <label class="ckrow" style="margin-bottom:12px">
+        <input type="checkbox" id="impForceTopic">
+        <span><b>새 주제로 바꾸기</b>미완료 퀘스트가 있어도 오늘 특강(주제)으로 바로 넘어가요</span>
+      </label>
       <div class="hint-box">
         <b>이런 모양이면 다 읽을 수 있어요</b>
 <pre class="code">{
@@ -1891,7 +1920,8 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     totalQuests: 0, totalFocusMin: 0,
     questsDate: '', quests: [],
     focusDate: '', focusMinToday: 0, sessionsToday: 0, sessionLog: {},
-    quiz: {}, resume: {}, owned: [], customJobs: [], customTopics: [],
+    quiz: {}, resume: {}, owned: [], customJobs: [], customTopics: [], labTopic: '',
+    allClearDate: '', allClearCoins: 0, questHistory: [],
     todos: [], wrongNotes: [],
     note: '', newsClosed: '',
     seenWelcome: false, importedAt: '', updatedAt: 0,
@@ -1923,6 +1953,10 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
   /* ---------- daily rollover ---------- */
   function dailyRollover() {
     var t = TODAY;
+    // 체크된 퀘스트는 지난 기록에 남긴다 (이번 버전 이전에 체크한 것도 채워둔다)
+    (S.quests || []).forEach(function (q) {
+      if (q && q.done && q.title) histAdd(q, S.questsDate || t);
+    });
     if (S.lastVisit !== t) {
       if (S.lastVisit === D.dayShift(t, -1)) S.streak += 1;
       else if (S.lastVisit !== t) S.streak = (S.streak > 0 && S.lastActive === t) ? S.streak : 1;
@@ -1930,12 +1964,28 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     }
     if (!S.streak) S.streak = 1;
     if (S.questsDate !== t) {
+      // 날짜가 바뀌어도 '끝내지 못한 퀘스트'는 그대로 이어간다 (완료한 퀘스트만 목록에서 정리)
+      var prevDate = S.questsDate;
+      var next = carryUnfinished(S.quests, t, prevDate);
+      var seenTitle = {}, hasPomo = false;
+      next.forEach(function (q) { seenTitle[normTitle(q.title)] = 1; if (q.type === 'pomodoro') hasPomo = true; });
+      D.buildDailyQuests(t).forEach(function (q, i) {
+        var k = normTitle(q.title);
+        if (seenTitle[k]) return;
+        if (q.type === 'pomodoro' && hasPomo) return;
+        seenTitle[k] = 1;
+        q.id = t + '#n' + i;
+        q.carried = false;
+        next.push(q);
+      });
+      S.quests = next.slice(0, 12);
       S.questsDate = t;
-      S.quests = D.buildDailyQuests(t);
       S.focusDate = t;
       S.focusMinToday = 0;
       S.sessionsToday = 0;
       S.newsClosed = '';
+      S.allClearDate = '';
+      S.allClearCoins = 0;
     }
     if (S.focusDate !== t) {
       S.focusDate = t; S.focusMinToday = 0; S.sessionsToday = 0;
@@ -2137,6 +2187,26 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     }
   }
   function addCoins(n) { S.coins = Math.max(0, S.coins + n); save(); paintHud(); }
+
+  /* 체크를 풀 때 준 만큼을 정확히 되돌린다 (레벨업 커브의 정확한 역연산) */
+  function removeExp(n) {
+    if (!n) return 0;
+    S.exp -= n;
+    var down = 0;
+    while (S.exp < 0 && S.level > 1) { S.level -= 1; S.exp += D.expForLevel(S.level); down += 1; }
+    if (S.exp < 0) S.exp = 0;
+    if (S.level < 1) S.level = 1;
+    return down;
+  }
+  function undoReward(exp, coins) {
+    if (exp) {
+      var down = removeExp(exp);
+      if (down) toast('🌱 레벨이 <b>Lv.' + S.level + '</b>로 돌아왔어요', '', 2200);
+    }
+    if (coins) S.coins = Math.max(0, (S.coins || 0) - coins);
+    save(); paintHud();
+    if (window.TownScene && TownScene.setLevel) TownScene.setLevel(S.level);
+  }
   function addGems(n) { S.gems = Math.max(0, S.gems + n); save(); paintHud(); }
 
   function reward(exp, coins, gems) {
@@ -2189,12 +2259,92 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
   /* ============================================================
      QUESTS
      ============================================================ */
+  /* ---------- 이월(carry-over) 도우미 ---------- */
+  function normTitle(s) { return String(s == null ? '' : s).replace(/\s+/g, ' ').trim(); }
+  function cloneQuest(q) { var c = {}; Object.keys(q || {}).forEach(function (k) { c[k] = q[k]; }); return c; }
+  function questOrigin(q) {
+    if (q && q.fromDate) return q.fromDate;
+    var id = String((q && q.id) || '');
+    if (id.indexOf('#') > 0) return id.split('#')[0];
+    return '';
+  }
+  // 끝나지 않은 퀘스트만 다음 날로 넘긴다 (진행도 prog/need도 그대로)
+  function carryUnfinished(list, newKey, prevDate) {
+    var out = [];
+    (list || []).forEach(function (q) {
+      if (!q || !q.title || q.done) return;
+      var c = cloneQuest(q);
+      c.id = newKey + '#k' + out.length;
+      c.done = false;
+      delete c.doneAt;
+      c.carried = true;
+      c.fromDate = questOrigin(q) || prevDate || newKey;
+      out.push(c);
+    });
+    return out;
+  }
+  function unfinishedStudyQuest() {
+    return (S.quests || []).filter(function (q) { return q.type === 'study' && !q.done; })[0] || null;
+  }
+  function currentTopic() {
+    var list = topics();
+    return list.filter(function (t) { return t.id === labTopic; })[0] || list[0] || null;
+  }
+  function topicIsSolved(tp) {
+    if (!tp) return false;
+    var pr = topicProgress(tp);
+    return pr.total > 0 && pr.correct >= pr.total;
+  }
+  // 지금 보던 주제를 계속 붙잡고 있어야 하는 이유 (없으면 null)
+  function topicHoldReason() {
+    var sq = unfinishedStudyQuest();
+    if (sq) return { study: sq };
+    var tp = currentTopic();
+    if (tp && tp.custom && !topicIsSolved(tp)) return { topic: tp };
+    return null;
+  }
+
+  /* ---------- 지난 퀘스트 기록 ---------- */
+  function histId(q, day) { return String((q && q.id) || normTitle(q && q.title)) + '@' + (day || TODAY); }
+  function histAdd(q, day) {
+    if (!q || !q.title) return;
+    var d = day || TODAY;
+    S.questHistory = S.questHistory || [];
+    var id = histId(q, d), t = normTitle(q.title);
+    // 같은 날 같은 퀘스트가 이미 있으면 중복으로 쌓지 않는다
+    S.questHistory = S.questHistory.filter(function (h) {
+      return !(h && h.id === id) && !(h && h.doneAt === d && !h.del && normTitle(h.title) === t);
+    });
+    S.questHistory.unshift({
+      id: id,
+      title: q.title,
+      type: q.type || 'self',
+      exp: q.awardedExp || q.exp || 0,
+      coins: q.awardedCoins || q.coins || 0,
+      doneAt: d
+    });
+    if (S.questHistory.length > 300) S.questHistory = S.questHistory.slice(0, 300);
+  }
+  function histRemove(q, day) {
+    if (!q || !S.questHistory) return;
+    var d = day || TODAY, t = normTitle(q.title);
+    S.questHistory.forEach(function (h) {
+      if (!h || h.del) return;
+      if (h.doneAt === d && (h.id === histId(q, d) || normTitle(h.title) === t)) { h.del = true; h.delAt = Date.now(); }
+    });
+    S.questHistory = S.questHistory.filter(function (h) { return !h.del; });
+  }
+
   function questOfType(type) { return S.quests.filter(function (q) { return q.type === type; })[0]; }
 
   function completeQuest(q, opts) {
     if (!q || q.done) return false;
     q.done = true;
     q.doneAt = Date.now();
+    // 체크를 풀 때 정확히 되돌릴 수 있도록, 실제로 준 만큼을 퀘스트에 적어둔다
+    q.awardedExp = q.exp || 0;
+    q.awardedCoins = q.coins || 0;
+    histAdd(q, TODAY);
     S.totalQuests += 1;
     S.lastActive = TODAY;
     reward(q.exp, q.coins);
@@ -2203,7 +2353,9 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     var all = S.quests.every(function (x) { return x.done; });
     if (all) {
       setTimeout(function () {
+        if (!S.quests.length || !S.quests.every(function (x) { return x.done; })) return;
         addCoins(30);
+        S.allClearDate = TODAY; S.allClearCoins = 30; save();
         toast('🏆 오늘 퀘스트 올클리어! 보너스 +30 코인', 'gold', 3600);
         Audio.fanfare();
         if (window.TownScene && TownScene.celebrate) TownScene.celebrate(true);
@@ -2218,13 +2370,43 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     var q = S.quests.filter(function (x) { return x.id === id; })[0];
     if (!q) return;
     if (q.done) {
-      q.done = false; save(); paintHud(); renderSideQuests(); renderQuestModal();
+      // 잘못 눌러 체크한 경우: 받았던 EXP·코인(올클리어 보너스까지)을 그대로 되돌린다
+      var backExp = q.awardedExp || 0;
+      var backCoins = q.awardedCoins || 0;
+      var bonus = 0;
+      if (S.allClearDate === TODAY && (S.allClearCoins || 0) > 0) { bonus = S.allClearCoins; S.allClearCoins = 0; }
+      q.done = false;
+      delete q.doneAt;
+      q.awardedExp = 0; q.awardedCoins = 0;
+      histRemove(q, TODAY);
+      S.totalQuests = Math.max(0, (S.totalQuests || 0) - 1);
+      var bits = [];
+      if (backExp) bits.push('-' + backExp + ' EXP');
+      if (backCoins + bonus) bits.push('-' + (backCoins + bonus) + ' 코인');
+      if (backExp || backCoins + bonus) {
+        undoReward(backExp, backCoins + bonus);
+        toast('↩︎ 체크를 풀어 ' + bits.join(' · ') + ' 되돌렸어요', '', 2600);
+      } else {
+        save();
+        toast('↩︎ 체크를 풀었어요', '', 1400);
+      }
+      paintHud(); renderSideQuests(); renderQuestModal();
       Audio.click();
       return;
     }
     completeQuest(q);
   }
 
+  function carryChip(q, big) {
+    if (!q || !q.carried || q.done) return '';
+    var from = q.fromDate || '';
+    var tip = from ? D.prettyDate(from) + '부터 이어지는 퀘스트' : '지난날에서 이어지는 퀘스트';
+    if (big) {
+      return '<span class="chip lav" title="' + esc(tip) + '">↩︎ 이월' +
+        (from ? ' · ' + esc(from.slice(5).replace('-', '/')) : '') + '</span>';
+    }
+    return '<div class="q-tag crover" title="' + esc(tip) + '">↩︎ 이월</div>';
+  }
   function questRow(q, big) {
     var ty = D.QUEST_TYPE[q.type] || D.QUEST_TYPE.self;
     var prog = (q.need && q.need > 1) ? ' <span class="chip">' + Math.min(q.prog || 0, q.need) + '/' + q.need + '</span>' : '';
@@ -2236,6 +2418,7 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
         '<div class="q-desc">' + esc(q.desc) + '</div>' +
         '<div class="bq-meta">' +
         '<span class="chip ' + ty.chip + '">' + ty.emoji + ' ' + ty.label + '</span>' +
+        carryChip(q, true) +
         '<span class="chip gold">+' + q.exp + ' EXP</span>' +
         '<span class="chip gem">+' + q.coins + ' 🪙</span>' +
         (q.type === 'pomodoro' ? '<span class="chip auto">🍅 자동 완료</span>' : '') +
@@ -2247,6 +2430,7 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     return '<div class="q-item' + (q.done ? ' done' : '') + '" data-q="' + esc(q.id) + '">' +
       '<div class="q-check">' + CHECK_SVG + '</div>' +
       '<div class="q-body"><div class="q-txt">' + esc(q.title) + '</div>' +
+      carryChip(q, false) +
       (q.type === 'pomodoro' ? '<div class="q-tag auto">🍅 뽀모도로 자동</div>' : (q.custom ? '<div class="q-tag crover">✨ 크로버 추천</div>' : '')) +
       '</div>' + rw + '</div>';
   }
@@ -2257,12 +2441,47 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     box.innerHTML = S.quests.slice(0, 4).map(function (q) { return questRow(q, false); }).join('');
   }
   function renderQuestModal() {
-    $('#questModalDate').textContent = D.prettyDate(S.questsDate || TODAY);
+    var carriedN = S.quests.filter(function (q) { return q.carried && !q.done; }).length;
+    $('#questModalDate').textContent = D.prettyDate(S.questsDate || TODAY) + (carriedN ? ' · 이월 ' + carriedN + '개' : '');
     $('#questModalList').innerHTML = S.quests.map(function (q) { return questRow(q, true); }).join('');
+    renderQuestHistory();
     var auto = S.quests.filter(function (q) { return q.type === 'pomodoro'; })[0];
     $('#questAutoNote').innerHTML = auto
       ? '지금 연동된 퀘스트: <b>' + esc(auto.title) + '</b> — 뽀모도로 세션을 완료하면 자동으로 체크돼요. (진행 ' + Math.min(auto.prog || 0, auto.need || 1) + '/' + (auto.need || 1) + ')'
       : '오늘은 자동 연동 퀘스트가 없어요. 뽀모도로를 돌리면 EXP와 코인은 그대로 쌓여요.';
+  }
+
+  function renderQuestHistory() {
+    var box = $('#questHistory');
+    if (!box) return;
+    var list = (S.questHistory || []).filter(function (h) { return h && !h.del && h.title; });
+    if ($('#questHistN')) $('#questHistN').textContent = list.length;
+    if (!list.length) {
+      box.innerHTML = '<div class="hist-empty">아직 지난 기록이 없어요 🐾<br>퀘스트를 하나 끝내면 여기에 날짜별로 쌓여요.</div>';
+      return;
+    }
+    var days = {}, order = [];
+    list.forEach(function (h) {
+      var d = h.doneAt || '';
+      if (!days[d]) { days[d] = []; order.push(d); }
+      days[d].push(h);
+    });
+    order.sort(function (a, b) { return String(a) < String(b) ? 1 : -1; });
+    box.innerHTML = order.map(function (d) {
+      var items = days[d];
+      var exp = items.reduce(function (s, h) { return s + (h.exp || 0); }, 0);
+      var coins = items.reduce(function (s, h) { return s + (h.coins || 0); }, 0);
+      return '<div class="hist-day">' +
+        '<div class="hist-day-hd"><b>' + esc(d ? D.prettyDate(d) : '날짜 없음') + '</b>' +
+        '<span>' + items.length + '개 · +' + exp + ' EXP · +' + coins + ' 🪙</span></div>' +
+        items.map(function (h) {
+          var ty = D.QUEST_TYPE[h.type] || D.QUEST_TYPE.self;
+          return '<div class="hist-item"><span class="chip ' + ty.chip + '">' + ty.emoji + ' ' + ty.label + '</span>' +
+            '<span class="hist-t">' + esc(h.title) + '</span>' +
+            '<span class="hist-r">+' + (h.exp || 0) + ' EXP · +' + (h.coins || 0) + ' 🪙</span></div>';
+        }).join('') +
+        '</div>';
+    }).join('');
   }
 
   /* ============================================================
@@ -2513,7 +2732,13 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
         }, 700);
       }
     } else {
-      t.done = false; t.doneDate = '';
+      // 체크를 풀면 그때 준 EXP·코인도 그대로 되돌린다
+      var backE = t.awarded ? 10 : 0, backC = t.awarded ? 5 : 0;
+      t.done = false; t.doneDate = ''; t.awarded = false;
+      if (backE || backC) {
+        undoReward(backE, backC);
+        toast('↩︎ 체크를 풀어 -' + backE + ' EXP · -' + backC + ' 코인을 되돌렸어요', '', 2400);
+      }
       Audio.click();
     }
     save(); renderTodo(); renderSideTodo(); paintHud();
@@ -2604,7 +2829,7 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
   /* ============================================================
      OBSERVATORY (네트워크 기초 8단계 · 오답노트)
      ============================================================ */
-  var labTopic = null, labTab = 'plan';
+  var labTopic = S.labTopic || null, labTab = 'plan';
   function topics() { return (S.customTopics || []).concat(D.TOPICS); }
   function topicProgress(tp) {
     var p = S.quiz[tp.id] || {};
@@ -2625,6 +2850,7 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     if (!labTopic || !list.filter(function (t) { return t.id === labTopic; }).length) labTopic = list[0].id;
     var picked = list.filter(function (t) { return t.id === labTopic; })[0];
     var idx = list.indexOf(picked);
+    if (picked && S.labTopic !== picked.id) { S.labTopic = picked.id; silentSave(); }
     if ($('#topicCount')) $('#topicCount').textContent = list.length + '단계';
     if ($('#topicList')) $('#topicList').innerHTML = list.map(function (t) {
       var pr = topicProgress(t);
@@ -2911,7 +3137,8 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
 
   var SYNC_FIELDS = ['townName', 'charName', 'level', 'exp', 'coins', 'gems', 'streak', 'lastVisit', 'lastActive',
     'totalQuests', 'totalFocusMin', 'questsDate', 'quests', 'focusDate', 'focusMinToday', 'sessionsToday', 'sessionLog',
-    'quiz', 'resume', 'owned', 'customJobs', 'customTopics', 'todos', 'wrongNotes', 'note', 'newsClosed', 'seenWelcome', 'sound', 'notif'];
+    'quiz', 'resume', 'owned', 'customJobs', 'customTopics', 'todos', 'wrongNotes', 'note', 'newsClosed', 'seenWelcome', 'sound', 'notif',
+    'questHistory', 'labTopic', 'allClearDate', 'allClearCoins'];
   function buildPayload() {
     var data = {};
     SYNC_FIELDS.forEach(function (k) { if (S[k] !== undefined) data[k] = S[k]; });
@@ -2975,6 +3202,36 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
   }
   function readGistById(id) { return gh('GET', '/gists/' + id).then(parseGist); }
 
+  /* 다른 기기 기록을 받아올 때도 끝나지 않은 퀘스트는 사라지지 않게 합친다 */
+  function adoptQuests(list, date) {
+    var day = date || TODAY;
+    var out = carryUnfinished(S.quests, day, S.questsDate);
+    var seen = {}, hasPomo = false;
+    out.forEach(function (q) { seen[normTitle(q.title)] = 1; if (q.type === 'pomodoro') hasPomo = true; });
+    (list || []).forEach(function (q, i) {
+      if (!q || !q.title) return;
+      var k = normTitle(q.title);
+      if (seen[k]) {
+        var mine = out.filter(function (x) { return normTitle(x.title) === k; })[0];
+        if (mine && !mine.done) {
+          if ((q.prog || 0) > (mine.prog || 0)) mine.prog = q.prog;
+          if (q.done) {
+            mine.done = true; mine.doneAt = q.doneAt; mine.carried = false;
+            mine.awardedExp = q.awardedExp || 0; mine.awardedCoins = q.awardedCoins || 0;
+          }
+        }
+        return;
+      }
+      if (q.type === 'pomodoro' && hasPomo) return;
+      if (q.type === 'pomodoro') hasPomo = true;
+      seen[k] = 1;
+      var c = cloneQuest(q);
+      c.id = day + '#r' + i;
+      out.push(c);
+    });
+    return out.slice(0, 12);
+  }
+
   /* ---------- merge: 기록은 합치고, 진행 수치는 마지막에 저장한 쪽을 따라요 ---------- */
   function mergePayload(remote) {
     if (!remote || !remote.data) return false;
@@ -2995,9 +3252,9 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
       });
     }
     if (d.quests && d.quests.length) {
-      if (!S.quests || !S.quests.length) { S.quests = d.quests; S.questsDate = d.questsDate; changed = true; }
+      if (!S.quests || !S.quests.length) { S.quests = adoptQuests(d.quests, d.questsDate); S.questsDate = d.questsDate; changed = true; }
       else if (d.questsDate && d.questsDate !== S.questsDate) {
-        if (pick) { S.quests = d.quests; S.questsDate = d.questsDate; changed = true; }
+        if (pick) { S.quests = adoptQuests(d.quests, d.questsDate); S.questsDate = d.questsDate; changed = true; }
       } else {
         var byId = {};
         S.quests.forEach(function (q) { byId[q.id] = q; });
@@ -3005,10 +3262,27 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
           if (!q || !q.id) return;
           var mine = byId[q.id];
           if (!mine) { S.quests.push(q); changed = true; }
-          else if (q.done && !mine.done) { mine.done = true; mine.doneAt = q.doneAt; changed = true; }
+          else if (q.done && !mine.done) {
+            mine.done = true; mine.doneAt = q.doneAt;
+            mine.awardedExp = q.awardedExp || 0; mine.awardedCoins = q.awardedCoins || 0;
+            changed = true;
+          }
           else if (!mine.done && (q.prog || 0) > (mine.prog || 0)) { mine.prog = q.prog; changed = true; }
         });
       }
+    }
+    if (Array.isArray(d.questHistory)) {
+      S.questHistory = S.questHistory || [];
+      var hk = {};
+      S.questHistory.forEach(function (h) { if (h && h.id) hk[h.id] = h; });
+      d.questHistory.forEach(function (h) {
+        if (!h || !h.id) return;
+        var mine = hk[h.id];
+        if (!mine) { S.questHistory.push(h); hk[h.id] = h; changed = true; return; }
+        if (h.del && !mine.del) { mine.del = true; mine.delAt = h.delAt; changed = true; }
+      });
+      S.questHistory.sort(function (a, b) { return String(a.doneAt) < String(b.doneAt) ? 1 : -1; });
+      if (S.questHistory.length > 300) S.questHistory = S.questHistory.slice(0, 300);
     }
     if (d.resume) {
       S.resume = S.resume || {};
@@ -3257,7 +3531,11 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     if (name === 'lab') { renderLab(); setLabTab(labTab); }
     if (name === 'shop') renderShop();
     if (name === 'settings') renderSettings();
-    if (name === 'import') { $('#importText').value = ''; $('#importPreview').innerHTML = ''; }
+    if (name === 'import') {
+      $('#importText').value = ''; $('#importPreview').innerHTML = '';
+      if ($('#impForceTopic')) $('#impForceTopic').checked = false;
+      if ($('#impKeepNote')) { $('#impKeepNote').innerHTML = ''; $('#impKeepNote').style.display = 'none'; }
+    }
     $('#modalBg').classList.add('open');
     Object.keys(VARIANTS).forEach(function (k) { var el = document.getElementById(VARIANTS[k]); if (el) el.style.display = (k === name ? 'flex' : 'none'); });
     $$('.rail-btn').forEach(function (b) { b.classList.toggle('active', b.dataset.open === name); });
@@ -3281,30 +3559,93 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     if (obj && obj.quests && !Array.isArray(obj.quests) && Array.isArray(obj.quests.items)) obj.quests = obj.quests.items;
     return obj;
   }
-  function applyImport(obj, silent) {
-    var applied = { quests: 0, jobs: 0, topic: 0, note: false };
-    if (Array.isArray(obj.quests) && obj.quests.length) {
-      var old = {};
-      S.quests.forEach(function (q) { if (q.done) old[q.title] = q; });
-      S.quests = obj.quests.slice(0, 8).map(function (q, i) {
-        q = q || {};
-        var title = String(q.title || q.text || q.name || ('크로버 퀘스트 ' + (i + 1)));
-        var prev = old[title];
-        return {
-          id: TODAY + '#c' + i,
-          title: title,
-          desc: String(q.desc || q.description || ''),
-          type: (['pomodoro', 'study', 'career', 'self'].indexOf(q.type) > -1 ? q.type : 'study'),
-          exp: Math.max(5, Math.min(200, parseInt(q.exp, 10) || 30)),
-          coins: Math.max(0, Math.min(300, parseInt(q.coins, 10) || 15)),
-          need: Math.max(1, Math.min(9, parseInt(q.need, 10) || 1)),
-          prog: prev ? (prev.prog || 0) : 0,
-          done: !!prev,
-          custom: true
-        };
+  function questFromImport(q, i, prevByTitle) {
+    q = q || {};
+    var title = String(q.title || q.text || q.name || ('크로버 퀘스트 ' + (i + 1))).replace(/\s+/g, ' ').trim();
+    var prev = prevByTitle[normTitle(title)];
+    return {
+      id: TODAY + '#c' + i,
+      title: title,
+      desc: String(q.desc || q.description || ''),
+      type: (['pomodoro', 'study', 'career', 'self'].indexOf(q.type) > -1 ? q.type : 'study'),
+      exp: Math.max(5, Math.min(200, parseInt(q.exp, 10) || 30)),
+      coins: Math.max(0, Math.min(300, parseInt(q.coins, 10) || 15)),
+      need: Math.max(1, Math.min(9, parseInt(q.need, 10) || 1)),
+      prog: prev ? (prev.prog || 0) : 0,
+      done: !!(prev && prev.done),
+      awardedExp: prev ? (prev.awardedExp || 0) : 0,
+      awardedCoins: prev ? (prev.awardedCoins || 0) : 0,
+      custom: true
+    };
+  }
+
+  // 붙여넣은 퀘스트를 '지금 목록에 합치는 계획'만 세운다 (상태는 건드리지 않음)
+  function planImport(obj, forceTopic) {
+    var plan = { keep: [], added: [], topic: null, hold: null };
+    if (obj && Array.isArray(obj.quests) && obj.quests.length) {
+      var prevByTitle = {};
+      (S.quests || []).forEach(function (q) { if (q && q.title) prevByTitle[normTitle(q.title)] = q; });
+      var seen = {}, hasPomo = false;
+      // 1) 끝내지 못한 기존 퀘스트는 그대로 맨 위에 남긴다 (진행도 그대로)
+      (S.quests || []).forEach(function (q) {
+        if (!q || !q.title || q.done) return;
+        var k = normTitle(q.title);
+        if (seen[k]) return;
+        seen[k] = 1;
+        var c = cloneQuest(q);
+        if (c.type === 'pomodoro') hasPomo = true;
+        if ((S.questsDate || '') !== TODAY) { c.carried = true; c.fromDate = questOrigin(c) || S.questsDate || TODAY; }
+        plan.keep.push(c);
       });
+      // 2) 새 퀘스트는 같은 제목·뽀모도로 중복만 걸러서 뒤에 더한다
+      obj.quests.slice(0, 8).forEach(function (q, i) {
+        var nq = questFromImport(q, i, prevByTitle);
+        var k = normTitle(nq.title);
+        if (seen[k]) return;
+        if (nq.type === 'pomodoro' && hasPomo) return;
+        if (nq.type === 'pomodoro') hasPomo = true;
+        seen[k] = 1;
+        plan.added.push(nq);
+      });
+    }
+    if (obj && obj.topic && (obj.topic.title || obj.topic.summary)) {
+      plan.topic = obj.topic;
+      plan.hold = forceTopic ? null : topicHoldReason();
+    }
+    return plan;
+  }
+
+  function importNoteHTML(plan) {
+    var out = [];
+    if (plan.keep.length) {
+      var names = plan.keep.slice(0, 3).map(function (q) { return esc(q.title); }).join(', ');
+      out.push('↩︎ <b>끝내지 못한 퀘스트 ' + plan.keep.length + '개</b>는 그대로 이어가요 · ' + names + (plan.keep.length > 3 ? ' 외' : ''));
+    }
+    if (plan.added.length) out.push('✨ 새 퀘스트 <b>' + plan.added.length + '개</b>를 더해요');
+    else out.push('새로 더할 퀘스트는 없어요. 지금 퀘스트만 이어가요.');
+    if (plan.topic) {
+      if (plan.hold) {
+        var why = plan.hold.study
+          ? '미완료 전공 퀘스트 <b>' + esc(plan.hold.study.title) + '</b>'
+          : '아직 다 풀지 않은 특강 <b>' + esc(plan.hold.topic.title) + '</b>';
+        out.push('📚 ' + why + ' 때문에 <b>보던 주제는 그대로</b> 두고, 새 특강은 단계 목록에 담아둘게요.');
+        out.push('새 주제로 바로 넘어가려면 아래 <b>새 주제로 바꾸기</b>를 체크하세요.');
+      } else {
+        out.push('📚 새 특강 <b>' + esc(plan.topic.title || '특강') + '</b>으로 넘어가요');
+      }
+    }
+    return out.join('<br>');
+  }
+
+  function applyImport(obj, silent, opts) {
+    opts = opts || {};
+    var applied = { quests: 0, jobs: 0, topic: 0, note: false, kept: 0, topicKept: false };
+    var plan = planImport(obj, !!opts.forceTopic);
+    if (plan.keep.length || plan.added.length) {
+      S.quests = plan.keep.concat(plan.added).slice(0, 12);
       S.questsDate = TODAY;
-      applied.quests = S.quests.length;
+      applied.quests = plan.added.length;
+      applied.kept = plan.keep.length;
     }
     if (Array.isArray(obj.jobs) && obj.jobs.length) {
       obj.jobs.forEach(function (j, i) {
@@ -3322,19 +3663,26 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
       S.customJobs = S.customJobs.slice(0, 30);
       applied.jobs = obj.jobs.length;
     }
-    if (obj.topic && (obj.topic.title || obj.topic.summary)) {
-      var tp = obj.topic;
-      var id = 'custom-' + D.hash(String(tp.title || '') + S.questsDate);
+    if (plan.topic) {
+      var tp = plan.topic;
+      var id = 'custom-' + D.hash(String(tp.title || '') + TODAY);
+      var watcher = currentTopic();            // 새 특강을 넣기 전에 '보던 주제'를 기억
       var quiz = Array.isArray(tp.questions) ? tp.questions.map(function (q) {
         q = q || {};
-        var opts = Array.isArray(q.options) ? q.options : (Array.isArray(q.o) ? q.o : []);
+        var opts2 = Array.isArray(q.options) ? q.options : (Array.isArray(q.o) ? q.o : []);
         var ans = (typeof q.answer === 'number') ? q.answer : (typeof q.a === 'number' ? q.a : 0);
-        return { q: String(q.q || q.question || ''), o: opts.map(String), a: ans, ex: String(q.ex || q.explain || '') };
+        return { q: String(q.q || q.question || ''), o: opts2.map(String), a: ans, ex: String(q.ex || q.explain || '') };
       }) : [];
       S.customTopics = S.customTopics.filter(function (x) { return x.id !== id; });
       S.customTopics.unshift({ id: id, title: String(tp.title || '오늘의 특강'), tags: ['크로버 추천'], note: [String(tp.summary || '')], quiz: quiz, custom: true });
-      labTopic = id;
-      applied.topic = 1;
+      if (plan.hold) {
+        // 미완료 전공 퀘스트 / 아직 못 푼 특강이 있으면 보던 주제를 그대로 둔다 (새 특강은 목록에 담아둠)
+        applied.topicKept = true;
+        if (watcher && watcher.id) { labTopic = watcher.id; S.labTopic = watcher.id; }
+      } else {
+        labTopic = id; S.labTopic = id;
+        applied.topic = 1;
+      }
     }
     if (obj.note) {
       S.note = String(obj.note);
@@ -3345,29 +3693,49 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     S.importedAt = TODAY;
     save();
     paintHud(); renderSideQuests(); renderQuestModal();
+    if (applied.topic || applied.topicKept) renderLab();
+    var keepBox = $('#impKeepNote');
+    if (keepBox) {
+      var noteHTML = importNoteHTML(plan);
+      keepBox.innerHTML = noteHTML;
+      keepBox.style.display = noteHTML ? '' : 'none';
+    }
     if (!silent) {
       var msg = [];
-      if (applied.quests) msg.push('퀘스트 ' + applied.quests + '개');
+      if (applied.quests) msg.push('새 퀘스트 ' + applied.quests + '개');
+      if (applied.kept) msg.push('이어가는 퀘스트 ' + applied.kept + '개');
       if (applied.jobs) msg.push('공고 ' + applied.jobs + '개');
-      if (applied.topic) msg.push('전공 특강');
-      toast('✨ 크로버 퀘스트를 불러왔어요! ' + (msg.length ? '(' + msg.join(', ') + ')' : ''), 'good', 3400);
+      if (applied.topicKept) msg.push('주제는 그대로 유지');
+      else if (applied.topic) msg.push('전공 특강');
+      toast('✨ 크로버 퀘스트를 불러왔어요! ' + (msg.length ? '(' + msg.join(' · ') + ')' : ''), 'good', 3400);
       Audio.chime();
       if (window.TownScene && TownScene.sparkle) TownScene.sparkle();
     }
     return applied;
   }
   function previewImport(obj) {
-    var rows = [];
-    (obj.quests || []).forEach(function (q) {
-      q = q || {};
-      rows.push('<div class="q-item"><div class="q-check">' + CHECK_SVG + '</div><div class="q-body"><div class="q-txt">' +
-        esc(q.title || q.text || '제목 없음') + '</div><div class="q-desc">' + esc(q.desc || '') + '</div></div>' +
-        '<div class="q-rw"><span>+' + (q.exp || 30) + ' EXP</span><span class="gem">+' + (q.coins || 15) + ' 🪙</span></div></div>');
+    var force = !!($('#impForceTopic') && $('#impForceTopic').checked);
+    var plan = planImport(obj, force);
+    var rows = plan.added.map(function (q) {
+      return '<div class="q-item"><div class="q-check">' + CHECK_SVG + '</div><div class="q-body"><div class="q-txt">' +
+        esc(q.title) + '</div><div class="q-desc">' + esc(q.desc) + '</div></div>' +
+        '<div class="q-rw"><span>+' + q.exp + ' EXP</span><span class="gem">+' + q.coins + ' 🪙</span></div></div>';
+    });
+    var keeps = plan.keep.map(function (q) {
+      return '<div class="q-item"><div class="q-check" style="opacity:.3">' + CHECK_SVG + '</div><div class="q-body"><div class="q-txt">' +
+        esc(q.title) + '</div><div class="q-desc">↩︎ 이어가는 퀘스트' + (q.fromDate ? ' · ' + esc(D.prettyDate(q.fromDate)) : '') + '</div></div></div>';
     });
     var extra = '';
     if (Array.isArray(obj.jobs)) extra += '<div class="chip gold" style="margin:6px 6px 0 0">✉️ 공고 ' + obj.jobs.length + '개</div>';
     if (obj.topic) extra += '<div class="chip lav" style="margin:6px 6px 0 0">🔭 ' + esc(obj.topic.title || '특강') + '</div>';
-    $('#importPreview').innerHTML = (rows.length ? rows.join('') : '<div class="quest-empty">퀘스트가 없어요.</div>') + (extra ? '<div>' + extra + '</div>' : '');
+    var all = keeps.concat(rows);
+    $('#importPreview').innerHTML = (all.length ? all.join('') : '<div class="quest-empty">퀘스트가 없어요.</div>') + (extra ? '<div>' + extra + '</div>' : '');
+    var keepBox = $('#impKeepNote');
+    if (keepBox) {
+      var noteHTML = importNoteHTML(plan);
+      keepBox.innerHTML = noteHTML;
+      keepBox.style.display = noteHTML ? '' : 'none';
+    }
   }
 
   /* ============================================================
@@ -3452,7 +3820,7 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
         return;
       }
       var t = e.target.closest('[data-topic]');
-      if (t) { labTopic = t.dataset.topic; renderLab(); Audio.click(); return; }
+      if (t) { labTopic = t.dataset.topic; S.labTopic = labTopic; silentSave(); renderLab(); Audio.click(); return; }
       var buy = e.target.closest('[data-buy]');
       if (buy) { buyItem(buy.dataset.buy); return; }
     });
@@ -3569,6 +3937,12 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     });
 
     // import
+    var forceCk = $('#impForceTopic');
+    if (forceCk) forceCk.addEventListener('change', function () {
+      var txt = ($('#importText').value || '').trim();
+      if (!txt) return;
+      try { previewImport(parseImport(txt)); } catch (e) { }
+    });
     $('#btnImportCheck').addEventListener('click', function () {
       try { previewImport(parseImport($('#importText').value)); }
       catch (err) { toast('⚠️ ' + err.message, '', 3200); Audio.wrong(); }
@@ -3576,7 +3950,7 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     $('#btnImportApply').addEventListener('click', function () {
       try {
         var obj = parseImport($('#importText').value);
-        applyImport(obj);
+        applyImport(obj, false, { forceTopic: !!($('#impForceTopic') && $('#impForceTopic').checked) });
         closeModal();
         renderNews();
         if (window.TownScene && TownScene.setDecor) { /* noop */ }
