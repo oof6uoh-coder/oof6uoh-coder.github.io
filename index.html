@@ -1514,6 +1514,10 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
       </div>
       <div class="hint-box" id="impKeepNote" style="display:none;margin-bottom:12px"></div>
       <label class="ckrow" style="margin-bottom:12px">
+        <input type="checkbox" id="impClearOld">
+        <span><b>기존 퀘스트 비우고 이 팩만 넣기</b>지금 목록을 비우고 받은 퀘스트만 새로 채워요 (기본은 이어가기)</span>
+      </label>
+      <label class="ckrow" style="margin-bottom:12px">
         <input type="checkbox" id="impForceTopic">
         <span><b>새 주제로 바꾸기</b>미완료 퀘스트가 있어도 오늘 특강(주제)으로 바로 넘어가요</span>
       </label>
@@ -1677,6 +1681,34 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
         exp: q.exp,
         coins: q.coins,
         need: q.need || 1,
+        done: false,
+        custom: false
+      };
+    });
+  }
+
+  /* 1일차 퀘스트 — 무작위 풀 대신 정해진 4개로 시작한다 */
+  var DAY1_QUESTS = [
+    { type: 'pomodoro', title: '뽀모도로 25분 × 4세트', exp: 60, coins: 30, need: 4,
+      desc: '오늘 집중 100분. 1세트는 개념 읽기, 2세트는 7계층 표 직접 그리기, 3세트는 패킷 여행 따라가기, 4세트는 이력서 한 칸 채우기' },
+    { type: 'study', title: 'OSI 7계층 + IP/MAC 정리 노트', exp: 40, coins: 20, need: 1,
+      desc: '전공 교수님 1단계 읽고 A4 한 장에 7계층 표와 \'패킷 한 번의 여행\'을 직접 그려보기' },
+    { type: 'career', title: '이력서 \'기술 스택\' 5줄 채우기', exp: 45, coins: 25, need: 1,
+      desc: 'OSI/TCP·IP, 서브넷, 방화벽, Linux, 정보처리기사(준비 중) — 배운 개념을 이력서 언어로 바꿔 적기' },
+    { type: 'self', title: '공고 3곳 마감일 캘린더 등록', exp: 25, coins: 15, need: 1,
+      desc: '다우데이타 11/27 · 나우시큐리티 12/3 · 제이원아이티 12/28 — 하루 전 알림까지 걸어두기' }
+  ];
+  function day1Quests(key) {
+    return DAY1_QUESTS.map(function (q, idx) {
+      return {
+        id: key + '#d' + idx,
+        title: q.title,
+        desc: q.desc,
+        type: q.type,
+        exp: q.exp,
+        coins: q.coins,
+        need: q.need || 1,
+        prog: 0,
         done: false,
         custom: false
       };
@@ -1889,7 +1921,7 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     STORE_KEY: STORE_KEY,
     pad: pad, dayKey: dayKey, dayShift: dayShift, prettyDate: prettyDate, WD: WD,
     hash: hash, rng: rng, expForLevel: expForLevel,
-    QUEST_POOL: QUEST_POOL, QUEST_TYPE: QUEST_TYPE, buildDailyQuests: buildDailyQuests,
+    QUEST_POOL: QUEST_POOL, QUEST_TYPE: QUEST_TYPE, buildDailyQuests: buildDailyQuests, day1Quests: day1Quests,
     TOPICS: TOPICS, RESUME: RESUME, JOBS: JOBS, JOB_SEARCH: JOB_SEARCH, SHOP: SHOP
   };
 })();
@@ -1953,6 +1985,8 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
   /* ---------- daily rollover ---------- */
   function dailyRollover() {
     var t = TODAY;
+    // 이번 실행이 '처음 시작'(빈 기록 · 기록 초기화 직후)인지 — 이때는 1일차 퀘스트 4개로 시작
+    var freshStart = !(S.quests && S.quests.length) || !S.questsDate;
     // 체크된 퀘스트는 지난 기록에 남긴다 (이번 버전 이전에 체크한 것도 채워둔다)
     (S.quests || []).forEach(function (q) {
       if (q && q.done && q.title) histAdd(q, S.questsDate || t);
@@ -1964,20 +1998,23 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     }
     if (!S.streak) S.streak = 1;
     if (S.questsDate !== t) {
-      // 날짜가 바뀌어도 '끝내지 못한 퀘스트'는 그대로 이어간다 (완료한 퀘스트만 목록에서 정리)
+      // 날짜가 바뀌면 '끝내지 못한 퀘스트'만 그대로 이어간다.
+      // 이월할 퀘스트가 하나라도 있으면 새 퀘스트는 더하지 않고, 전부 끝냈을 때만 새 하루 퀘스트를 만든다.
       var prevDate = S.questsDate;
       var next = carryUnfinished(S.quests, t, prevDate);
-      var seenTitle = {}, hasPomo = false;
-      next.forEach(function (q) { seenTitle[normTitle(q.title)] = 1; if (q.type === 'pomodoro') hasPomo = true; });
-      D.buildDailyQuests(t).forEach(function (q, i) {
-        var k = normTitle(q.title);
-        if (seenTitle[k]) return;
-        if (q.type === 'pomodoro' && hasPomo) return;
-        seenTitle[k] = 1;
-        q.id = t + '#n' + i;
-        q.carried = false;
-        next.push(q);
-      });
+      if (!next.length && !freshStart) {
+        var seenTitle = {}, hasPomo = false;
+        next.forEach(function (q) { seenTitle[normTitle(q.title)] = 1; if (q.type === 'pomodoro') hasPomo = true; });
+        D.buildDailyQuests(t).forEach(function (q, i) {
+          var k = normTitle(q.title);
+          if (seenTitle[k]) return;
+          if (q.type === 'pomodoro' && hasPomo) return;
+          seenTitle[k] = 1;
+          q.id = t + '#n' + i;
+          q.carried = false;
+          next.push(q);
+        });
+      }
       S.quests = next.slice(0, 12);
       S.questsDate = t;
       S.focusDate = t;
@@ -1990,7 +2027,7 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     if (S.focusDate !== t) {
       S.focusDate = t; S.focusMinToday = 0; S.sessionsToday = 0;
     }
-    if (!S.quests || !S.quests.length) S.quests = D.buildDailyQuests(t);
+    if (!S.quests || !S.quests.length) S.quests = freshStart ? D.day1Quests(t) : D.buildDailyQuests(t);
     save();
   }
 
@@ -3580,14 +3617,16 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
   }
 
   // 붙여넣은 퀘스트를 '지금 목록에 합치는 계획'만 세운다 (상태는 건드리지 않음)
-  function planImport(obj, forceTopic) {
-    var plan = { keep: [], added: [], topic: null, hold: null };
+  function planImport(obj, forceTopic, clearOld) {
+    var plan = { keep: [], added: [], topic: null, hold: null, clearOld: !!clearOld };
     if (obj && Array.isArray(obj.quests) && obj.quests.length) {
       var prevByTitle = {};
-      (S.quests || []).forEach(function (q) { if (q && q.title) prevByTitle[normTitle(q.title)] = q; });
+      // '비우고 넣기'면 지난 진행도를 물려받지 않는다 (이 팩만 새로 시작)
+      if (!plan.clearOld) (S.quests || []).forEach(function (q) { if (q && q.title) prevByTitle[normTitle(q.title)] = q; });
       var seen = {}, hasPomo = false;
       // 1) 끝내지 못한 기존 퀘스트는 그대로 맨 위에 남긴다 (진행도 그대로)
       (S.quests || []).forEach(function (q) {
+        if (plan.clearOld) return;
         if (!q || !q.title || q.done) return;
         var k = normTitle(q.title);
         if (seen[k]) return;
@@ -3617,12 +3656,16 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
 
   function importNoteHTML(plan) {
     var out = [];
-    if (plan.keep.length) {
+    if (plan.clearOld) {
+      out.push(plan.added.length
+        ? '🧹 <b>기존 퀘스트 ' + (S.quests || []).length + '개는 비우고</b> 받은 ' + plan.added.length + '개만 넣어요'
+        : '🧹 기존 퀘스트를 비우려 했지만 받은 코드에 퀘스트가 없어서 목록은 그대로 둘게요');
+    } else if (plan.keep.length) {
       var names = plan.keep.slice(0, 3).map(function (q) { return esc(q.title); }).join(', ');
       out.push('↩︎ <b>끝내지 못한 퀘스트 ' + plan.keep.length + '개</b>는 그대로 이어가요 · ' + names + (plan.keep.length > 3 ? ' 외' : ''));
     }
-    if (plan.added.length) out.push('✨ 새 퀘스트 <b>' + plan.added.length + '개</b>를 더해요');
-    else out.push('새로 더할 퀘스트는 없어요. 지금 퀘스트만 이어가요.');
+    if (plan.added.length) out.push('✨ 새 퀘스트 <b>' + plan.added.length + '개</b>를 ' + (plan.clearOld ? '넣어요' : '더해요'));
+    else if (!plan.clearOld) out.push('새로 더할 퀘스트는 없어요. 지금 퀘스트만 이어가요.');
     if (plan.topic) {
       if (plan.hold) {
         var why = plan.hold.study
@@ -3639,9 +3682,17 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
 
   function applyImport(obj, silent, opts) {
     opts = opts || {};
-    var applied = { quests: 0, jobs: 0, topic: 0, note: false, kept: 0, topicKept: false };
-    var plan = planImport(obj, !!opts.forceTopic);
-    if (plan.keep.length || plan.added.length) {
+    var applied = { quests: 0, jobs: 0, topic: 0, note: false, kept: 0, topicKept: false, cleared: false };
+    var plan = planImport(obj, !!opts.forceTopic, !!opts.clearOld);
+    if (plan.clearOld) {
+      // 기존 목록을 통째로 비우고 받은 팩만 넣는다 (받은 팩에 퀘스트가 없으면 비우지 않음)
+      if (plan.added.length) {
+        S.quests = plan.added.slice(0, 12);
+        S.questsDate = TODAY;
+        applied.quests = plan.added.length;
+        applied.cleared = true;
+      }
+    } else if (plan.keep.length || plan.added.length) {
       S.quests = plan.keep.concat(plan.added).slice(0, 12);
       S.questsDate = TODAY;
       applied.quests = plan.added.length;
@@ -3702,7 +3753,8 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     }
     if (!silent) {
       var msg = [];
-      if (applied.quests) msg.push('새 퀘스트 ' + applied.quests + '개');
+      if (applied.cleared) msg.push('기존 퀘스트 비우고 ' + applied.quests + '개');
+      else if (applied.quests) msg.push('새 퀘스트 ' + applied.quests + '개');
       if (applied.kept) msg.push('이어가는 퀘스트 ' + applied.kept + '개');
       if (applied.jobs) msg.push('공고 ' + applied.jobs + '개');
       if (applied.topicKept) msg.push('주제는 그대로 유지');
@@ -3715,7 +3767,8 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
   }
   function previewImport(obj) {
     var force = !!($('#impForceTopic') && $('#impForceTopic').checked);
-    var plan = planImport(obj, force);
+    var clearOld = !!($('#impClearOld') && $('#impClearOld').checked);
+    var plan = planImport(obj, force, clearOld);
     var rows = plan.added.map(function (q) {
       return '<div class="q-item"><div class="q-check">' + CHECK_SVG + '</div><div class="q-body"><div class="q-txt">' +
         esc(q.title) + '</div><div class="q-desc">' + esc(q.desc) + '</div></div>' +
@@ -3943,6 +3996,12 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
       if (!txt) return;
       try { previewImport(parseImport(txt)); } catch (e) { }
     });
+    var clearCk = $('#impClearOld');
+    if (clearCk) clearCk.addEventListener('change', function () {
+      var txt = ($('#importText').value || '').trim();
+      if (!txt) return;
+      try { previewImport(parseImport(txt)); } catch (e) { }
+    });
     $('#btnImportCheck').addEventListener('click', function () {
       try { previewImport(parseImport($('#importText').value)); }
       catch (err) { toast('⚠️ ' + err.message, '', 3200); Audio.wrong(); }
@@ -3950,7 +4009,7 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     $('#btnImportApply').addEventListener('click', function () {
       try {
         var obj = parseImport($('#importText').value);
-        applyImport(obj, false, { forceTopic: !!($('#impForceTopic') && $('#impForceTopic').checked) });
+        applyImport(obj, false, { forceTopic: !!($('#impForceTopic') && $('#impForceTopic').checked), clearOld: !!($('#impClearOld') && $('#impClearOld').checked) });
         closeModal();
         renderNews();
         if (window.TownScene && TownScene.setDecor) { /* noop */ }
