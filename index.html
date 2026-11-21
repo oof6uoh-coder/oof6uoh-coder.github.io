@@ -641,6 +641,9 @@ input,textarea,select{font-family:inherit;color:inherit}
 .shop-sec b{font-size:13px;font-weight:800;letter-spacing:-.02em}
 .shop-sec span{font-size:10px;color:var(--muted-2);font-weight:700}
 .shop-sec + .shop-sec{margin-top:6px}
+.skin-dots{display:flex;gap:3px;justify-content:center;margin:-3px 0 6px}
+.skin-dots i{display:block;width:9px;height:9px;border-radius:50%;border:1px solid rgba(255,255,255,.3)}
+.shop-item.skin-card .em{font-size:29px;margin-bottom:3px}
 
 /* ============ REPORT ============ */
 .rep-hero{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
@@ -2230,13 +2233,27 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     { id: 'moonlamp', kind: 'decor', name: '달님 조명', emoji: '🌙', price: 200, cur: 'coins', desc: '달빛이 더 밝아져요', scene: 'moonlamp' }
   ];
 
+  /* 🎨 용쥬 털 색깔 스킨 — 3D 고양이에게 그대로 입혀지는 색 (white = 기본 보유) */
+  var SKINS = [
+    { id: 'white', emoji: '🤍', name: '기본 하얀 용쥬', price: 0, cur: 'coins', free: true,
+      desc: '크림처럼 보들보들한 원래 용쥬', dots: ['#f9e6c6', '#f2dcba', '#fffaf0'] },
+    { id: 'cheese', emoji: '🍊', name: '치즈 태비', price: 30, cur: 'coins',
+      desc: '따뜻한 치즈빛 털 + 이마·등 줄무늬 + 머리 위 네잎클로버 🍀', dots: ['#f6cd97', '#e3a161', '#8fd98a'] },
+    { id: 'siamese', emoji: '🌌', name: '코코아 샴', price: 35, cur: 'coins',
+      desc: '크림빛 몸에 코코아 귀·얼굴·발·꼬리 끝, 새파란 눈', dots: ['#f8eeda', '#7c5439', '#6d4530'] },
+    { id: 'tuxedo', emoji: '🕶️', name: '턱시도 보안전문가', price: 40, cur: 'coins',
+      desc: '샤프한 차콜 수트 + 하얀 앞가슴·발 + 동그란 안경', dots: ['#3a3846', '#fdfdff', '#d9c46a'] },
+    { id: 'pink', emoji: '🍓', name: '딸기우유 핑크', price: 35, cur: 'coins',
+      desc: '딸기우유빛 털 + 크림 배·발 + 금빛 별 핀', dots: ['#f9c6d8', '#fcdde8', '#ffcf5c'] }
+  ];
+
   /* ---------- exported ---------- */
   window.__TOWN_DATA = {
     STORE_KEY: STORE_KEY,
     pad: pad, dayKey: dayKey, dayShift: dayShift, prettyDate: prettyDate, WD: WD,
     hash: hash, rng: rng, expForLevel: expForLevel,
     QUEST_POOL: QUEST_POOL, QUEST_TYPE: QUEST_TYPE, buildDailyQuests: buildDailyQuests, day1Quests: day1Quests,
-    TOPICS: TOPICS, RESUME: RESUME, JOBS: JOBS, JOB_SEARCH: JOB_SEARCH, SHOP: SHOP, INTERVIEW: INTERVIEW
+    TOPICS: TOPICS, RESUME: RESUME, JOBS: JOBS, JOB_SEARCH: JOB_SEARCH, SHOP: SHOP, SKINS: SKINS, INTERVIEW: INTERVIEW
   };
 })();
 </script>
@@ -2267,7 +2284,7 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     questsDate: '', quests: [],
     focusDate: '', focusMinToday: 0, sessionsToday: 0, sessionLog: {},
     quiz: {}, resume: {}, owned: [], customJobs: [], customTopics: [], labTopic: '',
-    shop: { owned: [], equipped: [], placed: [], v: 0 }, jobStatus: {},
+    shop: { owned: [], equipped: [], placed: [], skin: 'white', v: 0 }, jobStatus: {},
     interviewNotes: {}, weatherMock: '',
     dailyStats: {}, dailySeeded: 0, badges: {},
     allClearDate: '', allClearCoins: 0, questHistory: [],
@@ -2281,8 +2298,9 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
   /* ---------- 상점 · 꾸미기 상태 ---------- */
   function shopItem(id) { return D.SHOP.filter(function (x) { return x.id === id; })[0]; }
   function ensureShop() {
-    var s = (S.shop && typeof S.shop === 'object') ? S.shop : { owned: [], equipped: [], placed: [], v: 0 };
+    var s = (S.shop && typeof S.shop === 'object') ? S.shop : { owned: [], equipped: [], placed: [], skin: 'white', v: 0 };
     ['owned', 'equipped', 'placed'].forEach(function (k) { if (!Array.isArray(s[k])) s[k] = []; });
+    if (!s.skin || !D.SKINS.some(function (k) { return k.id === s.skin; })) s.skin = 'white';
     (S.owned || []).forEach(function (id) { if (s.owned.indexOf(id) < 0) s.owned.push(id); });
     if (!s.v) {
       // 이전 버전 기록: 이미 산 꾸미기는 바로 착용/배치된 상태로 이어간다
@@ -3967,6 +3985,60 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     if (!window.TownScene) return;
     if (TownScene.setDecor) TownScene.setDecor(S.shop.placed);
     if (TownScene.setWear) TownScene.setWear(S.shop.equipped);
+    if (TownScene.setCatSkin) TownScene.setCatSkin(S.shop.skin || 'white');
+  }
+  /* ---------- 🎨 털 색깔 스킨 ---------- */
+  function skinItem(id) { return D.SKINS.filter(function (k) { return k.id === id; })[0]; }
+  function skinOwned(id) {
+    var it = skinItem(id);
+    if (it && it.free) return true;
+    return S.shop.owned.indexOf('skin-' + id) > -1;
+  }
+  function skinOn(id) { return (S.shop.skin || 'white') === id; }
+  function skinCard(sk) {
+    var owned = skinOwned(sk.id), on = skinOn(sk.id);
+    var afford = S.coins >= sk.price;
+    var cls = 'shop-item skin-card' + (owned ? ' owned' : (afford ? '' : ' locked'));
+    var badge = on ? '<span class="on-badge">입고 있음</span>' : '';
+    var dots = '<span class="skin-dots">' + sk.dots.map(function (c) {
+      return '<i style="background:' + c + '"></i>';
+    }).join('') + '</span>';
+    var btn;
+    if (!owned) {
+      btn = '<button class="shop-buy" data-skin-buy="' + sk.id + '">🪙 ' + sk.price + ' · 구매하기</button>';
+    } else if (on) {
+      btn = '<button class="shop-buy on" data-skin="' + sk.id + '">✓ 입고 있음</button>';
+    } else {
+      btn = '<button class="shop-buy" data-skin="' + sk.id + '">이 스킨 입히기</button>';
+    }
+    return '<div class="' + cls + '">' + badge +
+      '<span class="em">' + sk.emoji + '</span>' + dots +
+      '<b>' + esc(sk.name) + '</b><p>' + esc(sk.desc) + '</p>' + btn + '</div>';
+  }
+  function buySkin(id) {
+    var sk = skinItem(id);
+    if (!sk) return;
+    if (skinOwned(id)) { wearSkin(id); return; }
+    if (S.coins < sk.price) {
+      toast('코인이 조금 부족해요 🥳 퀘스트로 모아볼까요?', '', 2600);
+      Audio.wrong(); return;
+    }
+    addCoins(-sk.price);
+    S.shop.owned.push('skin-' + id);
+    S.shop.skin = id;
+    applyShopChange();
+    Audio.chime();
+    toast('🎉 <b>' + sk.emoji + ' ' + esc(sk.name) + '</b> 구매 완료! 용쥬가 바로 갈아입었어요', 'good', 3200);
+    if (window.TownScene && TownScene.sparkle) TownScene.sparkle();
+  }
+  function wearSkin(id) {
+    var sk = skinItem(id);
+    if (!sk || !skinOwned(id)) return;
+    if (skinOn(id)) return;
+    S.shop.skin = id;
+    applyShopChange();
+    Audio.click();
+    toast('🎨 용쥬가 <b>' + sk.emoji + ' ' + esc(sk.name) + '</b> 털로 갈아입었어요', '', 2400);
   }
   function shopCard(it) {
     var owned = shopOwned(it.id), on = shopOn(it.id);
@@ -3998,6 +4070,8 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     var wear = D.SHOP.filter(function (it) { return it.kind === 'wear'; });
     var decor = D.SHOP.filter(function (it) { return it.kind === 'decor'; });
     $('#shopGrid').innerHTML =
+      '<div class="shop-sec"><b>🎨 용쥬 털 색깔 스킨</b><span>사고 나면 언제든 갈아입을 수 있어요</span></div>' +
+      D.SKINS.map(skinCard).join('') +
       '<div class="shop-sec"><b>🐾 용쥬 꾸미기</b><span>사고 나면 장착 · 해제할 수 있어요</span></div>' +
       wear.map(shopCard).join('') +
       '<div class="shop-sec"><b>🏡 마을 꾸미기</b><span>사면 3D 마을에 바로 배치돼요</span></div>' +
@@ -4368,6 +4442,10 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
           if (S.shop[k].indexOf(id) < 0) { S.shop[k].push(id); changed = true; }
         });
       });
+      // 입고 있는 털 스킨은 더 최근에 갈아입은 쪽을 따른다
+      if (typeof d.shop.skin === 'string' && d.shop.skin !== S.shop.skin && pick) {
+        S.shop.skin = d.shop.skin; changed = true;
+      }
     }
     S.owned = S.shop.owned;
     // 채용 우체국 지원 현황: 더 최근에 바꾼 쪽을 따른다
@@ -4945,6 +5023,10 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
       if (t) { labTopic = t.dataset.topic; S.labTopic = labTopic; silentSave(); renderLab(); Audio.click(); return; }
       var buy = e.target.closest('[data-buy]');
       if (buy) { buyItem(buy.dataset.buy); return; }
+      var skinBuy = e.target.closest('[data-skin-buy]');
+      if (skinBuy) { buySkin(skinBuy.dataset.skinBuy); return; }
+      var skinWear = e.target.closest('[data-skin]');
+      if (skinWear) { wearSkin(skinWear.dataset.skin); return; }
       var wear = e.target.closest('[data-wear]');
       if (wear) { toggleShopItem(wear.dataset.wear); return; }
       var place = e.target.closest('[data-place]');
@@ -7038,148 +7120,261 @@ window.TownScene = (function () {
   }
 
   /* ---------- 용쥬 ---------- */
+  /* 🎨 털 색깔 스킨 팔레트
+     마을 조명이 아주 밝아서(밤에도 하늘빛이 센 편) 색을 그대로 넣으면 하얗게 타 버린다.
+     그래서 재질 색은 조금 진하게 잡고, 스스로 은은하게 빛나게(emissive = 자기 색) 해서
+     낮에도 밤에도 같은 색으로 보이게 맞췄다. */
+  var CAT_SKINS = {
+    white: { body: 0x94836a, ear: 0x8e7c60, paw: 0xbca884, tail: 0x8e7c60, tip: 0x94836a,
+      belly: 0xcdb392, muzzle: 0xcdb392, nose: 0xc95f80, inner: 0xc95f80,
+      eye: 0x0b0806, blush: 0xd65f86, bop: 0.62, tabby: 0x4a3a26 },
+    cheese: { body: 0x9e541a, ear: 0xab7540, paw: 0xcfa971, tail: 0xab7540, tip: 0xcfa971,
+      belly: 0xd8b98a, muzzle: 0xd8b98a, nose: 0x8f3b28, inner: 0xb9584a,
+      eye: 0x0d0805, blush: 0xd05a6e, bop: 0.6, tabby: 0x4a260a },
+    siamese: { body: 0x9a8a70, ear: 0x2a1a10, paw: 0x2a1a10, tail: 0x2a1a10, tip: 0x22140b,
+      belly: 0xc0b096, muzzle: 0x3a2416, nose: 0x1d1109, inner: 0x7a4a3a,
+      eye: 0x11407e, blush: 0xa86a52, bop: 0.35, tabby: 0x4a3a26 },
+    tuxedo: { body: 0x14151c, ear: 0x14151c, paw: 0xdedee8, tail: 0x14151c, tip: 0xdedee8,
+      belly: 0xdedee8, muzzle: 0xdedee8, nose: 0xc95f80, inner: 0xc95f80,
+      eye: 0x9a7420, blush: 0x5a4290, bop: 0.28, tabby: 0x4a3a26 },
+    pink: { body: 0xb0607e, ear: 0xbb8298, paw: 0xe6c9a6, tail: 0xbb8298, tip: 0xe6c9a6,
+      belly: 0xe6c9a6, muzzle: 0xe6c9a6, nose: 0x9c2a44, inner: 0xc9708c,
+      eye: 0x140a10, blush: 0xd94f78, bop: 0.62, tabby: 0x4a3a26 }
+  };
+  var CAT_BASE_SCALE = 1.40;
+  var catFur = { blush: [] }, catSkinId = 'white', skinGrp = {};
+
   function makeCat() {
     var g = new THREE.Group();
     var inner = new THREE.Group(); g.add(inner);
-    var cream = mat(0xf9e6c6, { rough: 0.97, em: 0x4a3624, ei: 0.3 });
-    var cream2 = mat(0xf2dcba, { rough: 0.97, em: 0x3d2c1e, ei: 0.26 });
-    var pink = mat(0xf2a8bd, { rough: 0.9 });
-    var dark = mat(0x35231f, { rough: 0.4 });
-    var green = mat(0x8fd98a, { rough: 0.85, em: 0x2a5a20, ei: 0.45 });
-    var leather = mat(0x9a6b45, { rough: 0.85 });
+    /* 털 재질 — 스킨은 색만 갈아 끼운다 */
+    function furMat(c) { return mat(c, { rough: 0.97, em: c, ei: 0.26 }); }
+    catFur.body = furMat(0x8f7f62);
+    catFur.ear = furMat(0x8a785c);
+    catFur.paw = furMat(0x8a785c);
+    catFur.tail = furMat(0x8a785c);
+    catFur.tip = furMat(0x8f7f62);
+    catFur.belly = mat(0xa89a80, { rough: 0.97, em: 0xa89a80, ei: 0.34 });
+    catFur.muzzle = mat(0xa89a80, { rough: 0.97, em: 0xa89a80, ei: 0.32 });
+    catFur.nose = mat(0xc2607f, { rough: 0.9, em: 0xc2607f, ei: 0.35 });
+    catFur.eye = mat(0x0b0806, { rough: 0.36, em: 0x0b0806, ei: 0.4 });
+    catFur.blush = [];
+    var green = mat(0x4f9c46, { rough: 0.85, em: 0x4f9c46, ei: 0.45 });
+    var leather = mat(0x4a3018, { rough: 0.85, em: 0x4a3018, ei: 0.12 });
 
-    // chubby body
-    var body = sph(0.37, cream, 0, 0.43, 0, 20);
-    body.scale.set(1.04, 1.03, 0.92); inner.add(body);
-    var belly = sph(0.26, mat(0xfffaf0, { rough: 0.98 }), 0, 0.36, 0.19, 16);
-    belly.scale.set(1.05, 1.15, 0.55); inner.add(belly);
+    // 날씬한 몸통 — 폭은 줄이고 세로로 길게
+    var body = sph(0.33, catFur.body, 0, 0.55, 0, 24);
+    body.scale.set(1.00, 1.22, 0.91); inner.add(body);
+    // 앞가슴의 크림빛 배(턱시도의 하얀 앞가슴이 되기도 한다)
+    var belly = sph(0.17, catFur.belly, 0, 0.55, 0.232, 18);
+    belly.scale.set(1.12, 1.28, 0.42); inner.add(belly);
 
-    // head
-    var head = new THREE.Group(); head.position.y = 0.9; inner.add(head);
-    var hd = sph(0.435, cream, 0, 0, 0, 24); hd.scale.set(1.05, 0.97, 0.99); head.add(hd);
-    // ears
+    // 머리
+    var head = new THREE.Group(); head.position.y = 1.11; head.scale.setScalar(0.92); inner.add(head);
+    var hd = sph(0.375, catFur.body, 0, 0, 0, 26); hd.scale.set(1.04, 1.0, 1.0); head.add(hd);
+    // 귀
     function ear(side) {
       var grp = new THREE.Group();
-      var e = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.32, 6), cream2);
+      var e = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.32, 7), catFur.ear);
       e.position.set(0, 0.1, 0); e.rotation.z = -side * 0.1; e.castShadow = true;
-      var ei = new THREE.Mesh(new THREE.ConeGeometry(0.075, 0.19, 6), pink);
-      ei.position.set(0, 0.09, 0.045);
+      var ei = new THREE.Mesh(new THREE.ConeGeometry(0.065, 0.19, 6), catFur.nose);
+      ei.position.set(0, 0.09, 0.038);
       grp.add(e); grp.add(ei);
-      grp.position.set(side * 0.25, 0.3, 0);
+      grp.position.set(side * 0.235, 0.29, 0);
       grp.rotation.z = -side * 0.36;
       head.add(grp);
       return grp;
     }
     earL = ear(-1); earR = ear(1);
-    // eyes
-    eyeL = sph(0.075, dark, -0.152, 0.015, 0.355, 14); eyeL.scale.set(1, 1.2, 0.55); head.add(eyeL);
-    eyeR = sph(0.075, dark, 0.152, 0.015, 0.355, 14); eyeR.scale.set(1, 1.2, 0.55); head.add(eyeR);
+    // 눈
+    eyeL = sph(0.076, catFur.eye, -0.142, 0.02, 0.322, 14); eyeL.scale.set(1, 1.2, 0.55); head.add(eyeL);
+    eyeR = sph(0.076, catFur.eye, 0.142, 0.02, 0.322, 14); eyeR.scale.set(1, 1.2, 0.55); head.add(eyeR);
     [-1, 1].forEach(function (s) {
-      var hl = sph(0.022, mat(0xffffff, { em: 0xffffff, ei: 1 }), s * 0.15 + 0.018, 0.052, 0.39, 8);
+      var hl = sph(0.021, mat(0xffffff, { em: 0xffffff, ei: 1 }), s * 0.14 + 0.017, 0.055, 0.358, 8);
       head.add(hl);
-      var hl2 = sph(0.012, mat(0xffffff, { em: 0xffffff, ei: 0.8 }), s * 0.15 - 0.02, -0.01, 0.395, 6);
+      var hl2 = sph(0.011, mat(0xffffff, { em: 0xffffff, ei: 0.8 }), s * 0.14 - 0.019, -0.005, 0.362, 6);
       head.add(hl2);
-      var blush = sph(0.065, mat(0xf283a6, { rough: 0.9, tr: true, op: 0.75 }), s * 0.275, -0.075, 0.335, 10);
-      blush.scale.set(1.3, 0.7, 0.4); head.add(blush);
+      var blushM = mat(0xd65f86, { rough: 0.9, tr: true, op: 0.62, em: 0xd65f86, ei: 0.5 });
+      var blush = sph(0.05, blushM, s * 0.25, -0.062, 0.292, 10);
+      blush.scale.set(1.32, 0.72, 0.42); head.add(blush);
+      catFur.blush.push(blushM);
     });
-    // muzzle, nose, w-mouth
-    var muzzle = sph(0.1, mat(0xfffaf0, { rough: 0.98 }), 0, -0.1, 0.37, 14);
-    muzzle.scale.set(1.35, 0.72, 0.45); head.add(muzzle);
-    var nose = new THREE.Mesh(new THREE.ConeGeometry(0.034, 0.04, 4), pink);
-    nose.rotation.x = Math.PI / 2; nose.position.set(0, -0.062, 0.432); head.add(nose);
+    // 코 · 입
+    var muzzle = sph(0.09, catFur.muzzle, 0, -0.1, 0.325, 14);
+    muzzle.scale.set(1.34, 0.70, 0.48); head.add(muzzle);
+    var nose = new THREE.Mesh(new THREE.ConeGeometry(0.032, 0.04, 4), catFur.nose);
+    nose.rotation.x = Math.PI / 2; nose.position.set(0, -0.058, 0.378); head.add(nose);
     var wCurve = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(-0.055, -0.1, 0.415),
-      new THREE.Vector3(-0.028, -0.126, 0.424),
-      new THREE.Vector3(0, -0.104, 0.428),
-      new THREE.Vector3(0.028, -0.126, 0.424),
-      new THREE.Vector3(0.055, -0.1, 0.415)
+      new THREE.Vector3(-0.052, -0.095, 0.362),
+      new THREE.Vector3(-0.026, -0.12, 0.372),
+      new THREE.Vector3(0, -0.098, 0.376),
+      new THREE.Vector3(0.026, -0.12, 0.372),
+      new THREE.Vector3(0.052, -0.095, 0.362)
     ]);
-    var mouth = new THREE.Mesh(new THREE.TubeGeometry(wCurve, 18, 0.0085, 6, false), mat(0x7d5048, { rough: 0.6 }));
+    var mouth = new THREE.Mesh(new THREE.TubeGeometry(wCurve, 18, 0.0085, 6, false), mat(0x2e1c16, { rough: 0.6 }));
     head.add(mouth);
-    // whiskers
+    // 수염
     [-1, 1].forEach(function (s) {
       for (var i = 0; i < 2; i++) {
-        var wk = new THREE.Mesh(new THREE.CylinderGeometry(0.0035, 0.0035, 0.17, 4), mat(0xd8bda0));
+        var wk = new THREE.Mesh(new THREE.CylinderGeometry(0.0032, 0.0032, 0.155, 4), mat(0x9a8f80));
         wk.rotation.z = Math.PI / 2 + s * (0.12 + i * 0.1);
-        wk.position.set(s * 0.29, -0.045 - i * 0.05, 0.22);
+        wk.position.set(s * 0.26, -0.04 - i * 0.048, 0.18);
         head.add(wk);
       }
     });
-    // 4-leaf clover
-    var cl = new THREE.Group(); cl.position.set(0, 0.4, 0.01); head.add(cl);
-    cl.add(cyl(0.012, 0.015, 0.1, 5, mat(0x6fbf68), 0, 0.03, 0));
+
+    // 🍀 네잎클로버 (치즈 태비 전용)
+    var cl = new THREE.Group(); cl.position.set(0, 0.345, 0.03); head.add(cl);
+    cl.add(cyl(0.01, 0.014, 0.11, 5, green, 0, 0.03, 0));
     for (var c4 = 0; c4 < 4; c4++) {
-      var ca = c4 / 4 * Math.PI * 2;
-      var leaf = sph(0.052, green, Math.cos(ca) * 0.052, 0.1 + Math.sin(ca) * 0.052, 0, 10);
-      leaf.scale.set(1.1, 1.1, 0.6); cl.add(leaf);
+      var ca = c4 / 4 * Math.PI * 2 + Math.PI / 4;
+      var leaf = sph(0.055, green, Math.cos(ca) * 0.058, 0.11 + Math.sin(ca) * 0.058, 0, 10);
+      leaf.scale.set(1.18, 1.18, 0.42); leaf.rotation.z = ca;
+      cl.add(leaf);
     }
     cl.rotation.z = 0.2;
-    var clGlow = glowSprite(0x9fe89a, 0.7, 0.35); clGlow.position.set(0, 0.11, 0); cl.add(clGlow);
+    var clGlow = glowSprite(0x9fe89a, 0.58, 0.35); clGlow.position.set(0, 0.11, 0); cl.add(clGlow);
     pulseGlow(clGlow, 0.35, 1.9, 0.5);
-    var clHalo = glowSprite(0xa8f0b0, 1.5, 0.16); clHalo.position.set(0, 0.11, 0); cl.add(clHalo);
-    pulseGlow(clHalo, 0.16, 1.1, 0.4);
-    var clStar = sparkSprite(0xeaffd8, 0.5, 0.85); clStar.position.set(0, 0.16, 0); cl.add(clStar);
-    pulseGlow(clStar, 0.85, 2.6, 0.5);
+    var clHalo = glowSprite(0xa8f0b0, 1.2, 0.14); clHalo.position.set(0, 0.11, 0); cl.add(clHalo);
+    pulseGlow(clHalo, 0.14, 1.1, 0.4);
+    var clStar = sparkSprite(0xeaffd8, 0.4, 0.8); clStar.position.set(0, 0.16, 0); cl.add(clStar);
+    pulseGlow(clStar, 0.8, 2.6, 0.5);
+    cl.visible = false;
+    skinGrp.clover = cl;
 
-    // stubby paws
-    var pawData = [[-0.17, 0.1, 0.15], [0.17, 0.1, 0.15], [-0.16, 0.1, -0.14], [0.16, 0.1, -0.14]];
-    pawData.forEach(function (p, i) {
-      var leg = sph(0.1, cream2, p[0], p[1], p[2], 12);
-      leg.scale.set(0.92, 0.8, 1.12);
-      leg.userData.baseY = p[1];
+    // 🍊 치즈 태비 줄무늬 (이마 + 등)
+    var tabbyM = mat(0x4a260a, { rough: 0.95, em: 0x4a260a, ei: 0.2 });
+    var tabbyHead = new THREE.Group();
+    [[0.30, 0.215, 0.75, 0.17, 0.018, 0.042],
+     [0.235, 0.280, 0.42, 0.19, 0.018, 0.042],
+     [0.16, 0.327, 0.20, 0.15, 0.016, 0.038]].forEach(function (d) {
+      var st = sph(1, tabbyM, 0, d[0], d[1], 10);
+      st.scale.set(d[3], d[4], d[5]);
+      st.rotation.x = d[2];
+      tabbyHead.add(st);
+    });
+    head.add(tabbyHead);
+    var tabbyBody = new THREE.Group();
+    [[0.88, -0.17, -0.75, 0.19, 0.018, 0.045],
+     [0.80, -0.23, -0.55, 0.21, 0.018, 0.045],
+     [0.71, -0.27, -0.32, 0.18, 0.016, 0.040]].forEach(function (d) {
+      var st2 = sph(1, tabbyM, 0, d[0], d[1], 10);
+      st2.scale.set(d[3], d[4], d[5]);
+      st2.rotation.x = d[2];
+      tabbyBody.add(st2);
+    });
+    inner.add(tabbyBody);
+    tabbyHead.visible = tabbyBody.visible = false;
+    skinGrp.tabby = [tabbyHead, tabbyBody, tabbyM];
+
+    // 🌌 코코아 샴 얼굴 마스크 (눈 사이 코다리)
+    var maskM = mat(0x2a1a10, { rough: 0.95, em: 0x2a1a10, ei: 0.18 });
+    var mask = sph(0.032, maskM, 0, 0.02, 0.352, 12);
+    mask.scale.set(1.0, 3.1, 0.42);
+    head.add(mask);
+    mask.visible = false;
+    skinGrp.mask = mask;
+
+    // 🕶️ 턱시도 보안전문가 동그란 안경
+    var glMat = mat(0x9a7526, { rough: 0.35, metal: 0.5, em: 0x9a7526, ei: 0.4 });
+    var glasses = new THREE.Group();
+    [-1, 1].forEach(function (s) {
+      var ring = new THREE.Mesh(new THREE.TorusGeometry(0.078, 0.012, 8, 20), glMat);
+      ring.position.set(s * 0.142, 0.02, 0.352);
+      glasses.add(ring);
+      var arm = new THREE.Mesh(new THREE.CylinderGeometry(0.0075, 0.0075, 0.16, 6), glMat);
+      arm.position.set(s * 0.235, 0.033, 0.27);
+      arm.rotation.set(Math.PI / 2, 0, s * 0.16);
+      glasses.add(arm);
+    });
+    var bridge = new THREE.Mesh(new THREE.CylinderGeometry(0.0075, 0.0075, 0.13, 6), glMat);
+    bridge.rotation.z = Math.PI / 2; bridge.position.set(0, 0.038, 0.362);
+    glasses.add(bridge);
+    glasses.visible = false;
+    head.add(glasses);
+    skinGrp.glasses = glasses;
+
+    // 🍓 금빛 별 핀
+    var starShape = new THREE.Shape();
+    for (var sp = 0; sp < 10; sp++) {
+      var rr = (sp % 2) ? 0.026 : 0.063;
+      var ang = -Math.PI / 2 + sp * Math.PI / 5;
+      var sx = Math.cos(ang) * rr, sy = Math.sin(ang) * rr;
+      if (sp === 0) starShape.moveTo(sx, sy); else starShape.lineTo(sx, sy);
+    }
+    starShape.closePath();
+    var pin = new THREE.Mesh(new THREE.ShapeGeometry(starShape),
+      mat(0xd9a027, { rough: 0.3, metal: 0.55, em: 0xd9a027, ei: 0.55, side: THREE.DoubleSide }));
+    pin.position.set(0.135, 0.655, 0.278);
+    pin.rotation.set(-0.14, 0.16, 0.22);
+    pin.visible = false;
+    inner.add(pin);
+    skinGrp.star = pin;
+
+    // 가냘픈 네 다리
+    var legData = [[-0.145, 0.13], [0.145, 0.13], [-0.138, -0.125], [0.138, -0.125]];
+    legData.forEach(function (p, i) {
+      var leg = new THREE.Group();
+      leg.position.set(p[0], 0.25, p[1]);
+      leg.add(cyl(0.05, 0.058, 0.19, 10, catFur.paw, 0, -0.095, 0));
+      var paw = sph(0.072, catFur.paw, 0, -0.19, 0.012, 12);
+      paw.scale.set(1.05, 0.86, 1.26);
+      leg.add(paw);
+      leg.userData.baseY = 0.25;
       leg.userData.idx = i;
       inner.add(leg);
       paws.push(leg);
     });
 
-    // tail
+    // 우아하게 휘어 올라간 긴 꼬리
     tailGroup = new THREE.Group();
-    tailGroup.position.set(0, 0.52, -0.3);
+    tailGroup.position.set(0, 0.40, -0.22);
     var curve = new THREE.CatmullRomCurve3([
       new THREE.Vector3(0, 0, 0),
-      new THREE.Vector3(0.06, 0.2, -0.16),
-      new THREE.Vector3(0.02, 0.4, -0.24),
-      new THREE.Vector3(-0.1, 0.52, -0.16)
+      new THREE.Vector3(0, 0.16, -0.10),
+      new THREE.Vector3(0.02, 0.34, -0.16),
+      new THREE.Vector3(0.05, 0.48, -0.18),
+      new THREE.Vector3(0.10, 0.55, -0.10)
     ]);
-    var tail = new THREE.Mesh(new THREE.TubeGeometry(curve, 18, 0.058, 8, false), cream2);
+    var tail = new THREE.Mesh(new THREE.TubeGeometry(curve, 26, 0.038, 8, false), catFur.tail);
     tail.castShadow = true; tailGroup.add(tail);
-    tailGroup.add(sph(0.065, cream, -0.1, 0.52, -0.16, 10));
+    var tipS = sph(0.044, catFur.tip, 0.10, 0.55, -0.10, 10);
+    tailGroup.add(tipS);
     inner.add(tailGroup);
 
-    // brown crossbody strap + mini backpack
-    var strap = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.022, 6, 22), leather);
-    strap.position.set(0.02, 0.55, 0.02);
+    // 갈색 크로스백 스트랩 + 미니 백팩
+    var strap = new THREE.Mesh(new THREE.TorusGeometry(0.29, 0.021, 6, 24), leather);
+    strap.position.set(0.02, 0.63, 0.01);
     strap.rotation.set(0.32, 0.15, 0.62);
     strap.scale.set(1, 1.05, 1);
     inner.add(strap);
-    var buckle = box(0.05, 0.05, 0.03, mat(0xd9b063, { rough: 0.4, metal: 0.6 }), 0.235, 0.44, 0.24);
-    inner.add(buckle);
     var bag = new THREE.Group();
-    bag.add(box(0.26, 0.24, 0.16, leather, 0, 0.44, -0.36));
-    bag.add(box(0.27, 0.09, 0.17, mat(0x855537, { rough: 0.85 }), 0, 0.55, -0.36));
-    bag.add(box(0.06, 0.05, 0.02, mat(0xd9b063, { rough: 0.4, metal: 0.6 }), 0, 0.5, -0.28));
-    [[-0.09, -0.28], [0.09, -0.28]].forEach(function (p) {
-      var s = box(0.035, 0.26, 0.03, leather, p[0], 0.62, p[1]);
+    bag.add(box(0.23, 0.21, 0.14, leather, 0, 0.52, -0.315));
+    bag.add(box(0.24, 0.085, 0.15, mat(0x3f2814, { rough: 0.85, em: 0x3f2814, ei: 0.1 }), 0, 0.62, -0.315));
+    bag.add(box(0.055, 0.045, 0.02, mat(0x9a7526, { rough: 0.4, metal: 0.6, em: 0x9a7526, ei: 0.2 }), 0, 0.565, -0.245));
+    [[-0.08, -0.245], [0.08, -0.245]].forEach(function (p) {
+      var s = box(0.032, 0.24, 0.03, leather, p[0], 0.68, p[1]);
       s.rotation.x = -0.24; bag.add(s);
     });
     inner.add(bag);
 
     // 🌈 무지개 리본 (보석 아이템) — 왼쪽 귀 옆에 다는 작은 리본
     ribbonGrp = new THREE.Group();
-    var rbKnot = new THREE.Mesh(new THREE.SphereGeometry(0.045, 10, 8), mat(0xffd166, { rough: 0.55 }));
+    var rbKnot = new THREE.Mesh(new THREE.SphereGeometry(0.04, 10, 8), mat(0xb8862a, { rough: 0.55, em: 0xb8862a, ei: 0.3 }));
     ribbonGrp.add(rbKnot);
-    [[-1, 0xf07ab0], [1, 0x8fb8f0]].forEach(function (p) {
-      var loop = new THREE.Mesh(new THREE.SphereGeometry(0.075, 10, 8), mat(p[1], { rough: 0.6 }));
+    [[-1, 0xc25a86], [1, 0x5a7fc0]].forEach(function (p) {
+      var loop = new THREE.Mesh(new THREE.SphereGeometry(0.068, 10, 8), mat(p[1], { rough: 0.6, em: p[1], ei: 0.28 }));
       loop.scale.set(1.45, 0.85, 0.55);
-      loop.position.set(p[0] * 0.1, 0.035, 0);
+      loop.position.set(p[0] * 0.092, 0.032, 0);
       loop.rotation.z = p[0] * 0.25;
       ribbonGrp.add(loop);
-      var tail = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.14, 0.018), mat(p[1], { rough: 0.6 }));
-      tail.position.set(p[0] * 0.05, -0.09, 0.002);
-      tail.rotation.z = p[0] * 0.25;
-      ribbonGrp.add(tail);
+      var tail2 = new THREE.Mesh(new THREE.BoxGeometry(0.036, 0.125, 0.018), mat(p[1], { rough: 0.6, em: p[1], ei: 0.28 }));
+      tail2.position.set(p[0] * 0.046, -0.082, 0.002);
+      tail2.rotation.z = p[0] * 0.25;
+      ribbonGrp.add(tail2);
     });
-    ribbonGrp.position.set(-0.33, 1.08, 0.14);
+    ribbonGrp.position.set(-0.285, 1.30, 0.055);
+    ribbonGrp.scale.setScalar(0.92);
     ribbonGrp.rotation.set(0, -0.35, 0.55);
     ribbonGrp.visible = false;
     inner.add(ribbonGrp);
@@ -7187,69 +7382,100 @@ window.TownScene = (function () {
     /* --- wearable shop items: 마법사 모자 · 분홍 리본 · 포근 목도리 --- */
     // 🎩 마법사 모자
     hatGrp = new THREE.Group();
-    var hatPurple = mat(0x6b52b8, { rough: 0.72, em: 0x2a1f52, ei: 0.32 });
-    var hatDark = mat(0x4b3783, { rough: 0.82, em: 0x201640, ei: 0.25 });
-    var brim = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.43, 0.035, 26), hatDark);
+    var hatPurple = mat(0x3f2f74, { rough: 0.72, em: 0x3f2f74, ei: 0.3 });
+    var hatDark = mat(0x2a1e4d, { rough: 0.82, em: 0x2a1e4d, ei: 0.24 });
+    var brim = new THREE.Mesh(new THREE.CylinderGeometry(0.355, 0.395, 0.033, 26), hatDark);
     brim.castShadow = true; hatGrp.add(brim);
-    var hatCone = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.62, 22), hatPurple);
-    hatCone.position.y = 0.31; hatCone.castShadow = true; hatGrp.add(hatCone);
-    var hatBand = new THREE.Mesh(new THREE.TorusGeometry(0.285, 0.028, 6, 20),
-      mat(0xffd9a3, { rough: 0.5, em: 0xffb85c, ei: 0.55 }));
-    hatBand.rotation.x = Math.PI / 2; hatBand.position.y = 0.045; hatGrp.add(hatBand);
-    hatGrp.add(sph(0.035, mat(0xffe9c4, { em: 0xffc06a, ei: 1.2 }), -0.17, 0.22, 0.2, 8));
-    hatGrp.position.set(0.03, 0.43, -0.01);
+    var hatCone = new THREE.Mesh(new THREE.ConeGeometry(0.265, 0.58, 22), hatPurple);
+    hatCone.position.y = 0.29; hatCone.castShadow = true; hatGrp.add(hatCone);
+    var hatBand = new THREE.Mesh(new THREE.TorusGeometry(0.252, 0.025, 6, 20),
+      mat(0xb8862a, { rough: 0.5, em: 0xc08a2e, ei: 0.55 }));
+    hatBand.rotation.x = Math.PI / 2; hatBand.position.y = 0.042; hatGrp.add(hatBand);
+    hatGrp.add(sph(0.03, mat(0xffe9c4, { em: 0xffc06a, ei: 1.2 }), -0.145, 0.2, 0.175, 8));
+    hatGrp.position.set(0.028, 0.345, -0.01);
     hatGrp.rotation.set(-0.09, 0.12, -0.13);
     hatGrp.visible = false;
     head.add(hatGrp);
 
     // 🎀 분홍 리본
     bowGrp = new THREE.Group();
-    var pinkM = mat(0xf07ab0, { rough: 0.6 });
-    var pinkL = mat(0xf9a8c9, { rough: 0.58 });
-    var knot = new THREE.Mesh(new THREE.SphereGeometry(0.055, 12, 10), pinkM);
+    var pinkM = mat(0xb0547f, { rough: 0.6, em: 0xb0547f, ei: 0.3 });
+    var pinkL = mat(0xc47a9c, { rough: 0.58, em: 0xc47a9c, ei: 0.3 });
+    var knot = new THREE.Mesh(new THREE.SphereGeometry(0.052, 12, 10), pinkM);
     knot.scale.set(1, 0.9, 0.8); bowGrp.add(knot);
     [-1, 1].forEach(function (s) {
-      var loop = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 10), pinkL);
+      var loop = new THREE.Mesh(new THREE.SphereGeometry(0.095, 12, 10), pinkL);
       loop.scale.set(1.5, 0.95, 0.45);
-      loop.position.set(s * 0.13, 0.02, 0.01);
+      loop.position.set(s * 0.125, 0.02, 0.01);
       loop.rotation.z = s * 0.22;
       bowGrp.add(loop);
-      var tail = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.2, 0.02), pinkM);
-      tail.position.set(s * 0.07, -0.11, 0.006);
-      tail.rotation.z = s * 0.2;
-      bowGrp.add(tail);
+      var tail3 = new THREE.Mesh(new THREE.BoxGeometry(0.052, 0.19, 0.02), pinkM);
+      tail3.position.set(s * 0.066, -0.105, 0.006);
+      tail3.rotation.z = s * 0.2;
+      bowGrp.add(tail3);
     });
-    bowGrp.position.set(0, 0.57, 0.345);
+    bowGrp.position.set(0, 0.795, 0.245);
+    bowGrp.scale.setScalar(0.88);
     bowGrp.visible = false;
     inner.add(bowGrp);
 
     // 🧣 포근 목도리
     scarfGrp = new THREE.Group();
-    var scarfM = mat(0xe2645f, { rough: 0.94 });
-    var scarfM2 = mat(0xf2a08e, { rough: 0.94 });
-    var sRing = new THREE.Mesh(new THREE.TorusGeometry(0.315, 0.07, 8, 24), scarfM);
+    var scarfM = mat(0x9e3a34, { rough: 0.94, em: 0x9e3a34, ei: 0.28 });
+    var scarfM2 = mat(0xb05a48, { rough: 0.94, em: 0xb05a48, ei: 0.28 });
+    var sRing = new THREE.Mesh(new THREE.TorusGeometry(0.275, 0.048, 8, 26), scarfM);
     sRing.rotation.x = Math.PI / 2; scarfGrp.add(sRing);
-    var sRing2 = new THREE.Mesh(new THREE.TorusGeometry(0.315, 0.055, 8, 24), scarfM2);
-    sRing2.rotation.x = Math.PI / 2; sRing2.position.y = 0.085; scarfGrp.add(sRing2);
-    var sHang = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.28, 0.04), scarfM);
-    sHang.position.set(0.1, -0.16, 0.29); sHang.rotation.z = 0.12; scarfGrp.add(sHang);
-    var sFringe = new THREE.Mesh(new THREE.BoxGeometry(0.145, 0.05, 0.045), scarfM2);
-    sFringe.position.set(0.11, -0.31, 0.29); scarfGrp.add(sFringe);
-    scarfGrp.position.set(0, 0.6, 0.02);
+    var sRing2 = new THREE.Mesh(new THREE.TorusGeometry(0.275, 0.038, 8, 26), scarfM2);
+    sRing2.rotation.x = Math.PI / 2; sRing2.position.y = 0.075; scarfGrp.add(sRing2);
+    var sHang = new THREE.Mesh(new THREE.BoxGeometry(0.115, 0.22, 0.035), scarfM);
+    sHang.position.set(0.075, -0.12, 0.235); sHang.rotation.z = 0.12; scarfGrp.add(sHang);
+    var sFringe = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.04, 0.038), scarfM2);
+    sFringe.position.set(0.085, -0.235, 0.235); scarfGrp.add(sFringe);
+    scarfGrp.position.set(0, 0.875, 0.0);
     scarfGrp.visible = false;
     inner.add(scarfGrp);
 
     // warm pool of light under the cat
     var catGlow = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: GLOW, color: 0xffd9a0, transparent: true, opacity: 0.3,
+      map: GLOW, color: 0xffd9a0, transparent: true, opacity: 0.26,
       blending: THREE.AdditiveBlending, depthWrite: false
     }));
-    catGlow.scale.set(2.4, 2.4, 1); catGlow.position.y = 0.12; g.add(catGlow);
+    catGlow.scale.set(2.2, 2.2, 1); catGlow.position.y = 0.1; g.add(catGlow);
 
-    g.scale.setScalar(1.55);
+    g.scale.setScalar(CAT_BASE_SCALE);
     catInner = inner; catHead = head;
     catGroup = g;
+    applyCatSkin(catSkinId);
     return g;
+  }
+
+  /* ---------- 털 색깔 스킨 입히기 ---------- */
+  function applyCatSkin(id) {
+    if (!CAT_SKINS[id]) id = 'white';
+    catSkinId = id;
+    var p = CAT_SKINS[id];
+    if (!catFur.body) return;               // 아직 고양이를 만들기 전이면 색만 기억해 둔다
+    function paint(m, hex, ei) {
+      m.color.setHex(hex); m.emissive.setHex(hex); m.emissiveIntensity = ei;
+    }
+    paint(catFur.body, p.body, 0.30);
+    paint(catFur.ear, p.ear, 0.30);
+    paint(catFur.paw, p.paw, 0.34);
+    paint(catFur.tail, p.tail, 0.30);
+    paint(catFur.tip, p.tip, 0.34);
+    paint(catFur.belly, p.belly, 0.34);
+    paint(catFur.muzzle, p.muzzle, 0.32);
+    paint(catFur.nose, p.nose, 0.35);
+    paint(catFur.eye, p.eye, 0.40);
+    catFur.blush.forEach(function (m) { paint(m, p.blush, 0.5); m.opacity = p.bop; });
+    if (skinGrp.tabby) {
+      skinGrp.tabby.forEach(function (t) { t.visible = (id === 'cheese'); });
+      paint(skinGrp.tabby[2], p.tabby, 0.2);
+    }
+    if (skinGrp.clover) skinGrp.clover.visible = (id === 'cheese');
+    if (skinGrp.mask) skinGrp.mask.visible = (id === 'siamese');
+    if (skinGrp.glasses) skinGrp.glasses.visible = (id === 'tuxedo');
+    if (skinGrp.star) skinGrp.star.visible = (id === 'pink');
   }
 
   /* ---------- sky / water ---------- */
@@ -8493,6 +8719,7 @@ window.TownScene = (function () {
           var shop = st.shop || null;
           applyDecor((shop && shop.placed) || st.owned || []);
           applyWear((shop && shop.equipped) || st.owned || []);
+          applyCatSkin((shop && shop.skin) || 'white');
         }
         sparkle(10, new THREE.Vector3(0.9, 1.4, 2.7));
       } catch (e) {
@@ -8512,6 +8739,27 @@ window.TownScene = (function () {
     hop: hop,
     setDecor: applyDecor,
     setWear: applyWear,
+    setCatSkin: applyCatSkin,
+    catSkin: function () { return catSkinId; },
+    debugCat: function () {
+      if (!catGroup) return null;
+      var v = new THREE.Vector3();
+      function wp(o) { if (!o) return null; o.getWorldPosition(v); return [+v.x.toFixed(2), +v.y.toFixed(2), +v.z.toFixed(2)]; }
+      var tb = tailGroup ? new THREE.Box3().setFromObject(tailGroup) : null;
+      var cb = new THREE.Box3().setFromObject(catGroup);
+      return {
+        skin: catSkinId, tail: wp(tailGroup), head: wp(catHead),
+        tailBox: tb ? [tb.min.toArray(), tb.max.toArray()] : null,
+        catBox: [cb.min.toArray(), cb.max.toArray()],
+        colors: {
+          body: catFur.body && catFur.body.color.getHexString(),
+          belly: catFur.belly && catFur.belly.color.getHexString(),
+          bellyEi: catFur.belly && catFur.belly.emissiveIntensity,
+          paw: catFur.paw && catFur.paw.color.getHexString(),
+          tail: catFur.tail && catFur.tail.color.getHexString()
+        }
+      };
+    },
     setName: function (n) { },
     setDayMode: function (isDay, instant) { setDayMode(isDay, instant ? { instant: true } : undefined); },
     setWeather: function (kind) {
@@ -8544,7 +8792,7 @@ window.TownScene = (function () {
     setLevel: function (lv) {
       currentLevel = lv;
       if (catGroup) {
-        var s = 1.55 + Math.min(0.2, (lv - 1) * 0.012);
+        var s = CAT_BASE_SCALE + Math.min(0.2, (lv - 1) * 0.012);
         catGroup.scale.setScalar(s);
       }
     },
