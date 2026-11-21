@@ -7472,7 +7472,7 @@ window.TownScene = (function () {
       skinGrp.tabby.forEach(function (t) { t.visible = (id === 'cheese'); });
       paint(skinGrp.tabby[2], p.tabby, 0.2);
     }
-    if (skinGrp.clover) skinGrp.clover.visible = (id === 'cheese');
+    if (skinGrp.clover) skinGrp.clover.visible = (id === 'cheese' || id === 'white');
     if (skinGrp.mask) skinGrp.mask.visible = (id === 'siamese');
     if (skinGrp.glasses) skinGrp.glasses.visible = (id === 'tuxedo');
     if (skinGrp.star) skinGrp.star.visible = (id === 'pink');
