@@ -516,6 +516,7 @@ input,textarea,select{font-family:inherit;color:inherit}
 .chip.mint{background:rgba(169,232,207,.14);color:var(--mint)}
 .chip.auto{background:rgba(169,232,207,.14);color:var(--mint)}
 .chip.lav{background:rgba(188,170,232,.16);color:#d9c9ff}
+.chip.sky{background:rgba(168,200,245,.16);color:var(--sky)}
 
 /* ============ FOCUS PAGE ============ */
 .focus-hero{display:flex;gap:24px;align-items:center;flex-wrap:wrap}
@@ -1538,6 +1539,7 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
             <button data-tag="전공" class="on">🔭 전공</button>
             <button data-tag="취업">✉️ 취업</button>
             <button data-tag="일상">🌿 일상</button>
+            <button data-tag="공부">📖 공부</button>
           </div>
           <div class="seg" id="todoPriSeg">
             <button data-pri="높음">높음</button>
@@ -3616,7 +3618,8 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
   var TODO_TAG = {
     '전공': { emoji: '🔭', chip: 'lav' },
     '취업': { emoji: '✉️', chip: 'gold' },
-    '일상': { emoji: '🌿', chip: 'mint' }
+    '일상': { emoji: '🌿', chip: 'mint' },
+    '공부': { emoji: '📖', chip: 'sky' }
   };
   var TODO_PRI = { '높음': 0, '보통': 1, '낮음': 2 };
   var todoTag = '전공', todoPri = '보통';
