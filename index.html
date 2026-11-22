@@ -5406,7 +5406,7 @@ window.TownScene = (function () {
   'use strict';
   var THREE = null;
   var scene, camera, renderer, clock, canvasEl;
-  var catGroup, catInner, catHead, eyeL, eyeR, earL, earR, tailGroup, paws = [];
+  var catGroup, catInner, catHead, eyeL, eyeR, earL, earR, tailGroup, paws = [], arms = [];
   var labelsEl, labelDefs = [];
   var pickables = [], onPickCb = null;
   var decorGroup, sparkleList = [], clouds = [], waterRings = [], floatLanterns = [], waterfallMats = [], foamBits = [], glows = [];
@@ -7328,19 +7328,46 @@ window.TownScene = (function () {
     inner.add(pin);
     skinGrp.star = pin;
 
-    // 짧고 통통한 네 다리 — 몸통 밑동에 파묻혀 발만 살짝 나온 아기 다리
-    var legData = [[-0.146, 0.126], [0.146, 0.126], [-0.142, -0.126], [0.142, -0.126]];
-    legData.forEach(function (p, i) {
+    // 🐾 짧고 동글한 아기 다리 두 개 — 몸통 밑동에 부드럽게 파묻혀 발끝만 살짝 나온다.
+    //    기둥 같은 원기둥은 쓰지 않는다: 몸통색 둥근 알이 몸에서 이어지고, 발끝만 paw 색.
+    [-1, 1].forEach(function (s, i) {
       var leg = new THREE.Group();
-      leg.position.set(p[0], 0.28, p[1]);
-      leg.add(cyl(0.058, 0.098, 0.26, 14, catFur.paw, 0, -0.09, 0));
-      var paw = sph(0.10, catFur.paw, 0, -0.20, 0.016, 14);
-      paw.scale.set(1.06, 0.80, 1.22);
-      leg.add(paw);
-      leg.userData.baseY = 0.28;
+      leg.position.set(s * 0.118, 0, 0.012);
+      // 몸통에 파묻히는 동글한 허벅지 (몸통색이라 이음새가 보이지 않는다)
+      var thigh = sph(0.104, catFur.body, 0, 0.138, 0, 16);
+      thigh.scale.set(1.02, 1.30, 1.04);
+      leg.add(thigh);
+      // 바닥에 살짝 납작하게 붙는 동그란 발
+      var sole = sph(0.092, catFur.body, 0, 0.056, 0.012, 16);
+      sole.scale.set(1.16, 0.62, 1.22);
+      leg.add(sole);
+      // 앙증맞은 발끝 — 코코아 샴은 여기에만 작은 갈색 발끝이 생긴다
+      var toe = sph(0.062, catFur.paw, 0, 0.048, 0.052, 14);
+      toe.scale.set(1.20, 0.72, 1.06);
+      leg.add(toe);
+      leg.userData.side = s;
+      leg.userData.baseY = 0;
       leg.userData.idx = i;
       inner.add(leg);
       paws.push(leg);
+    });
+
+    // 🐾 몸통 위쪽 옆면에 자연스럽게 붙은 짧고 동글한 팔 두 개 (살짝 아래·바깥으로)
+    [-1, 1].forEach(function (s) {
+      var arm = new THREE.Group();
+      arm.position.set(s * 0.298, 0.600, 0.086);
+      var upper = sph(0.065, catFur.body, 0, -0.086, 0, 16);
+      upper.scale.set(1.0, 1.86, 1.0);
+      arm.add(upper);
+      var tip = sph(0.054, catFur.paw, 0, -0.196, 0.012, 14);
+      tip.scale.set(1.08, 1.0, 1.08);
+      arm.add(tip);
+      arm.userData.side = s;
+      arm.userData.baseRotZ = s * 0.66;
+      arm.rotation.z = s * 0.66;
+      arm.rotation.x = -0.07;
+      inner.add(arm);
+      arms.push(arm);
     });
 
     // 짧고 통통하게 말린 꼬리
@@ -8427,17 +8454,27 @@ window.TownScene = (function () {
       catHead.rotation.z = moving ? Math.sin(catPhase) * 0.05 : Math.sin(t * 0.8) * 0.04;
       catHead.rotation.x = moving ? -0.04 : Math.sin(t * 0.6) * 0.03;
     }
-    // paws
+    // 두 다리 — 걸을 때 좌우 번갈아 종종걸음, 서 있을 때는 발을 딱 붙인다
     for (var i = 0; i < paws.length; i++) {
       var pw = paws[i];
+      var psd = pw.userData.side;
       if (moving) {
-        var ph = catPhase + (i % 2 === 0 ? 0 : Math.PI) + (i > 1 ? 0.3 : 0);
-        pw.position.y = pw.userData.baseY + Math.max(0, Math.sin(ph)) * 0.048;
-        pw.rotation.x = Math.sin(ph) * 0.42;
+        var ph = catPhase + (psd < 0 ? 0 : Math.PI);
+        pw.position.y = Math.max(0, Math.sin(ph)) * 0.055;
+        pw.rotation.x = Math.sin(ph) * 0.32;
       } else {
         pw.position.y += (pw.userData.baseY - pw.position.y) * Math.min(1, dt * 8);
         pw.rotation.x += (0 - pw.rotation.x) * Math.min(1, dt * 8);
       }
+    }
+    // 두 팔 — 걸을 때는 다리와 반대로 흔들리고, 가만히 있을 때는 살며시 흔들린다
+    for (var ai = 0; ai < arms.length; ai++) {
+      var ar = arms[ai], asd = ar.userData.side;
+      ar.rotation.x = moving
+        ? -0.07 + Math.sin(catPhase + (asd < 0 ? Math.PI : 0)) * 0.50
+        : -0.07 + Math.sin(t * 0.95 + (asd < 0 ? 0.7 : -0.7)) * 0.09;
+      ar.rotation.z = ar.userData.baseRotZ +
+        (moving ? Math.abs(Math.sin(catPhase)) * 0.07 : Math.sin(t * 0.8) * 0.045) * asd;
     }
     // tail wag
     if (tailGroup) {
