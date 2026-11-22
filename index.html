@@ -2990,29 +2990,43 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     if (!q || !q.title) return;
     var d = day || TODAY;
     S.questHistory = S.questHistory || [];
-    var id = histId(q, d), t = normTitle(q.title);
-    // 같은 날 같은 퀘스트가 이미 있으면 중복으로 쌓지 않는다
+    var id = histId(q, d), t = normTitle(q.title), now = Date.now();
+    // 체크를 풀었다가 같은 퀘스트를 다시 체크하면, 지웠던 기록을 그 자리에서 되살린다
+    var again = null;
+    S.questHistory.forEach(function (h) { if (h && h.id === id) again = h; });
+    // 같은 날 같은 퀘스트가 이미 살아 있으면 중복으로 쌓지 않는다
     S.questHistory = S.questHistory.filter(function (h) {
-      return !(h && h.id === id) && !(h && h.doneAt === d && !h.del && normTitle(h.title) === t);
+      return !(h && h !== again && h.doneAt === d && !h.del && normTitle(h.title) === t);
     });
+    if (again) {
+      delete again.del; delete again.delAt;
+      again.title = q.title;
+      again.type = q.type || again.type || 'self';
+      again.exp = q.awardedExp || q.exp || 0;
+      again.coins = q.awardedCoins || q.coins || 0;
+      again.at = now;
+      return;
+    }
     S.questHistory.unshift({
       id: id,
       title: q.title,
       type: q.type || 'self',
       exp: q.awardedExp || q.exp || 0,
       coins: q.awardedCoins || q.coins || 0,
-      doneAt: d
+      doneAt: d,
+      at: now
     });
     if (S.questHistory.length > 300) S.questHistory = S.questHistory.slice(0, 300);
   }
   function histRemove(q, day) {
     if (!q || !S.questHistory) return;
-    var d = day || TODAY, t = normTitle(q.title);
+    var d = day || TODAY, t = normTitle(q.title), now = Date.now();
     S.questHistory.forEach(function (h) {
       if (!h || h.del) return;
-      if (h.doneAt === d && (h.id === histId(q, d) || normTitle(h.title) === t)) { h.del = true; h.delAt = Date.now(); }
+      if (h.doneAt === d && (h.id === histId(q, d) || normTitle(h.title) === t)) { h.del = true; h.delAt = now; }
     });
-    S.questHistory = S.questHistory.filter(function (h) { return !h.del; });
+    // 지운 기록은 바로 없애지 않고 표시(del)만 남긴다 — 다른 기기에도 '지워졌다'를 알려야 하니까
+    // (30일이 지난 표시는 pruneTodos에서, 화면에서는 renderQuestHistory에서 걸러 낸다)
   }
 
   function questOfType(type) { return S.quests.filter(function (q) { return q.type === type; })[0]; }
@@ -3021,6 +3035,7 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     if (!q || q.done) return false;
     q.done = true;
     q.doneAt = Date.now();
+    q.toggledAt = q.doneAt;          // 체크한 시각 — 다른 기기와 겨룰 때 쓴다
     // 체크를 풀 때 정확히 되돌릴 수 있도록, 실제로 준 만큼을 퀘스트에 적어둔다
     q.awardedExp = q.exp || 0;
     q.awardedCoins = q.coins || 0;
@@ -3060,6 +3075,7 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
       if (S.allClearDate === TODAY && (S.allClearCoins || 0) > 0) { bonus = S.allClearCoins; S.allClearCoins = 0; }
       q.done = false;
       delete q.doneAt;
+      q.toggledAt = Date.now();      // 해제한 시각도 남겨야 다음 동기화에 다시 체크되지 않는다
       q.awardedExp = 0; q.awardedCoins = 0;
       histRemove(q, TODAY);
       S.totalQuests = Math.max(0, (S.totalQuests || 0) - 1);
@@ -3611,6 +3627,8 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     var cutoff = Date.now() - 1000 * 60 * 60 * 24 * 30;
     S.todos = (S.todos || []).filter(function (t) { return !(t.del && (t.delAt || 0) < cutoff); });
     S.wrongNotes = (S.wrongNotes || []).filter(function (w) { return !(w.del && (w.delAt || 0) < cutoff); });
+    // 지난 퀘스트 기록의 삭제 표시도 30일 뒤에 정리한다
+    S.questHistory = (S.questHistory || []).filter(function (h) { return !(h && h.del && (h.delAt || 0) < cutoff); });
   }
   function openTodos() {
     return allTodos().filter(function (t) { return !t.done || t.doneDate === TODAY; });
@@ -3637,7 +3655,7 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     var t = allTodos().filter(function (x) { return x.id === id; })[0];
     if (!t) return;
     if (!t.done) {
-      t.done = true; t.doneDate = TODAY;
+      t.done = true; t.doneDate = TODAY; t.toggledAt = Date.now();
       var first = !t.awarded;
       t.awarded = true;
       if (first) { addExp(10); addCoins(5); Audio.chime(); bumpDaily('todos', 1); touchStreak(); }
@@ -3655,7 +3673,7 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
       // 체크를 풀면 그때 준 EXP·코인도 그대로 되돌린다
       var backE = t.awarded ? 10 : 0, backC = t.awarded ? 5 : 0;
       if (t.awarded) bumpDaily('todos', -1);
-      t.done = false; t.doneDate = ''; t.awarded = false;
+      t.done = false; t.doneDate = ''; t.awarded = false; t.toggledAt = Date.now();
       if (backE || backC) {
         undoReward(backE, backC);
         toast('↩︎ 체크를 풀어 -' + backE + ' EXP · -' + backC + ' 코인을 되돌렸어요', '', 2400);
@@ -4330,11 +4348,19 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
       var k = normTitle(q.title);
       if (seen[k]) {
         var mine = out.filter(function (x) { return normTitle(x.title) === k; })[0];
-        if (mine && !mine.done) {
+        if (mine) {
           if ((q.prog || 0) > (mine.prog || 0)) mine.prog = q.prog;
-          if (q.done) {
-            mine.done = true; mine.doneAt = q.doneAt; mine.carried = false;
-            mine.awardedExp = q.awardedExp || 0; mine.awardedCoins = q.awardedCoins || 0;
+          // 체크·해제는 누른 시각(toggledAt)이 더 최근인 쪽을 따른다
+          var rTs = q.toggledAt || q.doneAt || 0, lTs = mine.toggledAt || mine.doneAt || 0;
+          var legacy = (q.toggledAt === undefined && mine.toggledAt === undefined);
+          if (Boolean(q.done) !== Boolean(mine.done) && (rTs > lTs || (legacy && q.done))) {
+            if (q.done) {
+              mine.done = true; mine.doneAt = q.doneAt; mine.toggledAt = rTs; mine.carried = false;
+              mine.awardedExp = q.awardedExp || 0; mine.awardedCoins = q.awardedCoins || 0;
+            } else {
+              mine.done = false; delete mine.doneAt; mine.toggledAt = rTs;
+              mine.awardedExp = 0; mine.awardedCoins = 0;
+            }
           }
         }
         return;
@@ -4357,7 +4383,7 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     var pick = rT > lT;
     ['townName', 'charName', 'level', 'exp', 'coins', 'gems', 'streak', 'totalQuests', 'totalFocusMin',
       'focusDate', 'focusMinToday', 'sessionsToday', 'lastVisit', 'lastActive', 'seenWelcome', 'sound', 'notif', 'note', 'newsClosed',
-      'streakBest', 'streakDate'
+      'streakBest', 'streakDate', 'allClearDate', 'allClearCoins'
     ].forEach(function (k) {
       if (d[k] === undefined || d[k] === null) return;
       if (pick && d[k] !== S[k]) { S[k] = d[k]; changed = true; }
@@ -4379,10 +4405,20 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
         d.quests.forEach(function (q) {
           if (!q || !q.id) return;
           var mine = byId[q.id];
-          if (!mine) { S.quests.push(q); changed = true; }
-          else if (q.done && !mine.done) {
-            mine.done = true; mine.doneAt = q.doneAt;
-            mine.awardedExp = q.awardedExp || 0; mine.awardedCoins = q.awardedCoins || 0;
+          if (!mine) { S.quests.push(q); changed = true; return; }
+          // 체크·해제는 '누른 시각'(toggledAt)이 더 최근인 쪽을 따른다
+          // (예전 기록에는 toggledAt이 없으니 그때만 done: false→true로 합치던 규칙을 쓴다)
+          var rTs = q.toggledAt || q.doneAt || 0;
+          var lTs = mine.toggledAt || mine.doneAt || 0;
+          var legacy = (q.toggledAt === undefined && mine.toggledAt === undefined);
+          if (Boolean(q.done) !== Boolean(mine.done) && (rTs > lTs || (legacy && q.done && !mine.done))) {
+            if (q.done) {
+              mine.done = true; mine.doneAt = q.doneAt; mine.toggledAt = rTs;
+              mine.awardedExp = q.awardedExp || 0; mine.awardedCoins = q.awardedCoins || 0;
+            } else {
+              mine.done = false; delete mine.doneAt; mine.toggledAt = rTs;
+              mine.awardedExp = 0; mine.awardedCoins = 0;
+            }
             changed = true;
           }
           else if (!mine.done && (q.prog || 0) > (mine.prog || 0)) { mine.prog = q.prog; changed = true; }
@@ -4397,7 +4433,13 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
         if (!h || !h.id) return;
         var mine = hk[h.id];
         if (!mine) { S.questHistory.push(h); hk[h.id] = h; changed = true; return; }
-        if (h.del && !mine.del) { mine.del = true; mine.delAt = h.delAt; changed = true; }
+        if (h.del) {
+          // 지운 기록: 내가 되살린 시각(at)보다 나중에 지운 것이면 지운 쪽을 따른다
+          if (!mine.del && (h.delAt || 0) > (mine.at || 0)) { mine.del = true; mine.delAt = h.delAt; changed = true; }
+        } else if (mine.del) {
+          // 다시 체크해서 되살아난 기록: 지운 시각(delAt)보다 나중이면 되살린다
+          if ((h.at || 0) > (mine.delAt || 0)) { delete mine.del; delete mine.delAt; mine.at = h.at; changed = true; }
+        }
       });
       S.questHistory.sort(function (a, b) { return String(a.doneAt) < String(b.doneAt) ? 1 : -1; });
       if (S.questHistory.length > 300) S.questHistory = S.questHistory.slice(0, 300);
@@ -4490,7 +4532,17 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
         var mine = tidx[t.id];
         if (!mine) { S.todos.push(t); tidx[t.id] = t; changed = true; return; }
         if (t.del && !mine.del) { mine.del = true; mine.delAt = t.delAt; changed = true; }
-        if (t.done && !mine.done) { mine.done = true; mine.doneDate = t.doneDate; mine.awarded = true; changed = true; }
+        if (mine.del) return;
+        // 체크·해제는 '누른 시각'(toggledAt)이 더 최근인 쪽을 따른다 — 해제가 다음 동기화에 되살아나지 않게
+        var rTs = t.toggledAt || 0, lTs = mine.toggledAt || 0;
+        var legacy = (t.toggledAt === undefined && mine.toggledAt === undefined);
+        if (Boolean(t.done) !== Boolean(mine.done) && (rTs > lTs || (legacy && t.done && !mine.done))) {
+          mine.done = !!t.done;
+          mine.doneDate = t.done ? (t.doneDate || TODAY) : '';
+          mine.awarded = t.done ? !!t.awarded : false;
+          mine.toggledAt = rTs;
+          changed = true;
+        }
         if (t.text && mine.text !== t.text && (t.editedAt || 0) > (mine.editedAt || 0)) { mine.text = t.text; changed = true; }
       });
     }
