@@ -7141,7 +7141,7 @@ window.TownScene = (function () {
       belly: 0xe6c9a6, muzzle: 0xe6c9a6, nose: 0x9c2a44, inner: 0xc9708c,
       eye: 0x140a10, blush: 0xd94f78, bop: 0.62, tabby: 0x4a3a26 }
   };
-  var CAT_BASE_SCALE = 1.40;
+  var CAT_BASE_SCALE = 1.34;
   var catFur = { blush: [] }, catSkinId = 'white', skinGrp = {};
 
   function makeCat() {
@@ -7162,15 +7162,31 @@ window.TownScene = (function () {
     var green = mat(0x4f9c46, { rough: 0.85, em: 0x4f9c46, ei: 0.45 });
     var leather = mat(0x4a3018, { rough: 0.85, em: 0x4a3018, ei: 0.12 });
 
-    // 날씬한 몸통 — 폭은 줄이고 세로로 길게
-    var body = sph(0.33, catFur.body, 0, 0.55, 0, 24);
-    body.scale.set(1.00, 1.22, 0.91); inner.add(body);
-    // 앞가슴의 크림빛 배(턱시도의 하얀 앞가슴이 되기도 한다)
-    var belly = sph(0.17, catFur.belly, 0, 0.55, 0.232, 18);
-    belly.scale.set(1.12, 1.28, 0.42); inner.add(belly);
+    /* 🐾 앙증맞은 아기 고양이 비율 — 머리는 크게, 몸통은 짧고 동글하게, 다리는 짧고 통통하게.
+       몸통 치수는 아래 BODY_* 하나만 바꾸면 배·줄무늬·별핀·가방이 전부 따라 움직인다. */
+    var BODY_CY = 0.50, BODY_R = 0.34;
+    var BODY_SX = 1.06, BODY_SY = 0.92, BODY_SZ = 1.00;     // 폭이 높이보다 큰 동그란 몸
+    var BRX = BODY_R * BODY_SX, BRY = BODY_R * BODY_SY, BRZ = BODY_R * BODY_SZ;
+    // 몸통 표면 위의 점: u = 세로 위치(-1 아래 ~ 1 위), ang = 0 뒤통수 → π 앞가슴
+    function bodyPt(u, ang) {
+      var t = Math.sqrt(Math.max(0, 1 - u * u));
+      return new THREE.Vector3(Math.sin(ang) * BRX * t, BODY_CY + u * BRY, -Math.cos(ang) * BRZ * t);
+    }
+    function bodyNrm(u, ang) {
+      var t = Math.sqrt(Math.max(0, 1 - u * u));
+      if (t < 1e-5) return new THREE.Vector3(0, u >= 0 ? 1 : -1, 0);
+      return new THREE.Vector3(Math.sin(ang) * t / BRX, u / BRY, -Math.cos(ang) * t / BRZ).normalize();
+    }
 
-    // 머리
-    var head = new THREE.Group(); head.position.y = 1.11; head.scale.setScalar(0.92); inner.add(head);
+    // 동글하고 짧은 몸통
+    var body = sph(BODY_R, catFur.body, 0, BODY_CY, 0, 32);
+    body.scale.set(BODY_SX, BODY_SY, BODY_SZ); inner.add(body);
+    // 앞가슴의 크림빛 배(턱시도의 하얀 앞가슴이 되기도 한다) — 살짝 볼록한 동그란 배
+    var belly = sph(0.16, catFur.belly, 0, 0.425, 0.300, 30);
+    belly.scale.set(1.15, 1.03, 0.56); inner.add(belly);
+
+    // 머리 — 몸통보다 살짝 큰 2등신 머리
+    var head = new THREE.Group(); head.position.y = 0.97; inner.add(head);
     var hd = sph(0.375, catFur.body, 0, 0, 0, 26); hd.scale.set(1.04, 1.0, 1.0); head.add(hd);
     // 귀
     function ear(side) {
@@ -7255,12 +7271,13 @@ window.TownScene = (function () {
     });
     head.add(tabbyHead);
     var tabbyBody = new THREE.Group();
-    [[0.88, -0.17, -0.75, 0.19, 0.018, 0.045],
-     [0.80, -0.23, -0.55, 0.21, 0.018, 0.045],
-     [0.71, -0.27, -0.32, 0.18, 0.016, 0.040]].forEach(function (d) {
-      var st2 = sph(1, tabbyM, 0, d[0], d[1], 10);
-      st2.scale.set(d[3], d[4], d[5]);
-      st2.rotation.x = d[2];
+    // 등줄무늬는 몸통 곡면에 그대로 붙는다 (몸통 비율을 바꿔도 떠 보이지 않게)
+    [[0.66, 0.17, 0.044], [0.36, 0.19, 0.042], [0.06, 0.16, 0.038]].forEach(function (d) {
+      var st2 = sph(1, tabbyM, 0, 0, 0, 12);
+      var p2 = bodyPt(d[0], 0), n2 = bodyNrm(d[0], 0);
+      st2.position.copy(p2).addScaledVector(n2, -0.006);
+      st2.scale.set(d[1], 0.022, d[2]);
+      st2.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), n2);
       tabbyBody.add(st2);
     });
     inner.add(tabbyBody);
@@ -7305,57 +7322,53 @@ window.TownScene = (function () {
     starShape.closePath();
     var pin = new THREE.Mesh(new THREE.ShapeGeometry(starShape),
       mat(0xd9a027, { rough: 0.3, metal: 0.55, em: 0xd9a027, ei: 0.55, side: THREE.DoubleSide }));
-    pin.position.set(0.135, 0.655, 0.278);
-    pin.rotation.set(-0.14, 0.16, 0.22);
+    pin.position.set(0.196, 0.598, 0.279);
+    pin.rotation.set(-0.30, 0.56, 0.18);
     pin.visible = false;
     inner.add(pin);
     skinGrp.star = pin;
 
-    // 가냘픈 네 다리
-    var legData = [[-0.145, 0.13], [0.145, 0.13], [-0.138, -0.125], [0.138, -0.125]];
+    // 짧고 통통한 네 다리 — 몸통 밑동에 파묻혀 발만 살짝 나온 아기 다리
+    var legData = [[-0.146, 0.126], [0.146, 0.126], [-0.142, -0.126], [0.142, -0.126]];
     legData.forEach(function (p, i) {
       var leg = new THREE.Group();
-      leg.position.set(p[0], 0.25, p[1]);
-      leg.add(cyl(0.05, 0.058, 0.19, 10, catFur.paw, 0, -0.095, 0));
-      var paw = sph(0.072, catFur.paw, 0, -0.19, 0.012, 12);
-      paw.scale.set(1.05, 0.86, 1.26);
+      leg.position.set(p[0], 0.28, p[1]);
+      leg.add(cyl(0.058, 0.098, 0.26, 14, catFur.paw, 0, -0.09, 0));
+      var paw = sph(0.10, catFur.paw, 0, -0.20, 0.016, 14);
+      paw.scale.set(1.06, 0.80, 1.22);
       leg.add(paw);
-      leg.userData.baseY = 0.25;
+      leg.userData.baseY = 0.28;
       leg.userData.idx = i;
       inner.add(leg);
       paws.push(leg);
     });
 
-    // 우아하게 휘어 올라간 긴 꼬리
+    // 짧고 통통하게 말린 꼬리
     tailGroup = new THREE.Group();
-    tailGroup.position.set(0, 0.40, -0.22);
+    tailGroup.position.set(0.09, 0.28, -0.24);
     var curve = new THREE.CatmullRomCurve3([
       new THREE.Vector3(0, 0, 0),
-      new THREE.Vector3(0, 0.16, -0.10),
-      new THREE.Vector3(0.02, 0.34, -0.16),
-      new THREE.Vector3(0.05, 0.48, -0.18),
-      new THREE.Vector3(0.10, 0.55, -0.10)
+      new THREE.Vector3(0.015, 0.100, -0.120),
+      new THREE.Vector3(0.035, 0.200, -0.195),
+      new THREE.Vector3(0.055, 0.300, -0.225),
+      new THREE.Vector3(0.075, 0.385, -0.190)
     ]);
-    var tail = new THREE.Mesh(new THREE.TubeGeometry(curve, 26, 0.038, 8, false), catFur.tail);
+    var tail = new THREE.Mesh(new THREE.TubeGeometry(curve, 26, 0.05, 10, false), catFur.tail);
     tail.castShadow = true; tailGroup.add(tail);
-    var tipS = sph(0.044, catFur.tip, 0.10, 0.55, -0.10, 10);
+    var tipS = sph(0.056, catFur.tip, 0.075, 0.385, -0.190, 12);
     tailGroup.add(tipS);
     inner.add(tailGroup);
 
-    // 갈색 크로스백 스트랩 + 미니 백팩
-    var strap = new THREE.Mesh(new THREE.TorusGeometry(0.29, 0.021, 6, 24), leather);
-    strap.position.set(0.02, 0.63, 0.01);
-    strap.rotation.set(0.32, 0.15, 0.62);
-    strap.scale.set(1, 1.05, 1);
+    // 갈색 크로스백 스트랩 + 미니 백팩 (짧아진 몸통에 맞춰 조금 작고 낮게)
+    var strap = new THREE.Mesh(new THREE.TorusGeometry(0.318, 0.022, 6, 26), leather);
+    strap.position.set(0.015, 0.575, 0.0);
+    strap.rotation.set(0.24, 0.14, 0.70);
+    strap.scale.set(1, 1.02, 1);
     inner.add(strap);
     var bag = new THREE.Group();
-    bag.add(box(0.23, 0.21, 0.14, leather, 0, 0.52, -0.315));
-    bag.add(box(0.24, 0.085, 0.15, mat(0x3f2814, { rough: 0.85, em: 0x3f2814, ei: 0.1 }), 0, 0.62, -0.315));
-    bag.add(box(0.055, 0.045, 0.02, mat(0x9a7526, { rough: 0.4, metal: 0.6, em: 0x9a7526, ei: 0.2 }), 0, 0.565, -0.245));
-    [[-0.08, -0.245], [0.08, -0.245]].forEach(function (p) {
-      var s = box(0.032, 0.24, 0.03, leather, p[0], 0.68, p[1]);
-      s.rotation.x = -0.24; bag.add(s);
-    });
+    bag.add(box(0.17, 0.165, 0.11, leather, -0.06, 0.545, -0.352));
+    bag.add(box(0.18, 0.064, 0.12, mat(0x3f2814, { rough: 0.85, em: 0x3f2814, ei: 0.1 }), -0.06, 0.612, -0.352));
+    bag.add(box(0.042, 0.034, 0.02, mat(0x9a7526, { rough: 0.4, metal: 0.6, em: 0x9a7526, ei: 0.2 }), -0.06, 0.572, -0.295));
     inner.add(bag);
 
     // 🌈 무지개 리본 (보석 아이템) — 왼쪽 귀 옆에 다는 작은 리본
@@ -7373,7 +7386,7 @@ window.TownScene = (function () {
       tail2.rotation.z = p[0] * 0.25;
       ribbonGrp.add(tail2);
     });
-    ribbonGrp.position.set(-0.285, 1.30, 0.055);
+    ribbonGrp.position.set(-0.335, 1.185, 0.065);
     ribbonGrp.scale.setScalar(0.92);
     ribbonGrp.rotation.set(0, -0.35, 0.55);
     ribbonGrp.visible = false;
@@ -7414,8 +7427,8 @@ window.TownScene = (function () {
       tail3.rotation.z = s * 0.2;
       bowGrp.add(tail3);
     });
-    bowGrp.position.set(0, 0.795, 0.245);
-    bowGrp.scale.setScalar(0.88);
+    bowGrp.position.set(0, 0.665, 0.30);
+    bowGrp.scale.setScalar(0.80);
     bowGrp.visible = false;
     inner.add(bowGrp);
 
@@ -7423,15 +7436,15 @@ window.TownScene = (function () {
     scarfGrp = new THREE.Group();
     var scarfM = mat(0x9e3a34, { rough: 0.94, em: 0x9e3a34, ei: 0.28 });
     var scarfM2 = mat(0xb05a48, { rough: 0.94, em: 0xb05a48, ei: 0.28 });
-    var sRing = new THREE.Mesh(new THREE.TorusGeometry(0.275, 0.048, 8, 26), scarfM);
+    var sRing = new THREE.Mesh(new THREE.TorusGeometry(0.305, 0.05, 8, 26), scarfM);
     sRing.rotation.x = Math.PI / 2; scarfGrp.add(sRing);
-    var sRing2 = new THREE.Mesh(new THREE.TorusGeometry(0.275, 0.038, 8, 26), scarfM2);
-    sRing2.rotation.x = Math.PI / 2; sRing2.position.y = 0.075; scarfGrp.add(sRing2);
+    var sRing2 = new THREE.Mesh(new THREE.TorusGeometry(0.315, 0.04, 8, 26), scarfM2);
+    sRing2.rotation.x = Math.PI / 2; sRing2.position.y = 0.068; scarfGrp.add(sRing2);
     var sHang = new THREE.Mesh(new THREE.BoxGeometry(0.115, 0.22, 0.035), scarfM);
-    sHang.position.set(0.075, -0.12, 0.235); sHang.rotation.z = 0.12; scarfGrp.add(sHang);
+    sHang.position.set(0.075, -0.155, 0.315); sHang.rotation.z = 0.12; scarfGrp.add(sHang);
     var sFringe = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.04, 0.038), scarfM2);
-    sFringe.position.set(0.085, -0.235, 0.235); scarfGrp.add(sFringe);
-    scarfGrp.position.set(0, 0.875, 0.0);
+    sFringe.position.set(0.085, -0.272, 0.315); scarfGrp.add(sFringe);
+    scarfGrp.position.set(0, 0.70, 0.0);
     scarfGrp.visible = false;
     inner.add(scarfGrp);
 
@@ -8392,9 +8405,9 @@ window.TownScene = (function () {
 
     var bob, waddle, tilt;
     if (moving) {
-      bob = Math.abs(Math.sin(catPhase)) * 0.1;
-      waddle = Math.sin(catPhase) * 0.09;
-      tilt = -0.06 + Math.abs(Math.cos(catPhase)) * 0.05;
+      bob = Math.abs(Math.sin(catPhase)) * 0.075;
+      waddle = Math.sin(catPhase) * 0.085;
+      tilt = -0.05 + Math.abs(Math.cos(catPhase)) * 0.045;
     } else {
       bob = Math.sin(t * 1.7) * 0.012;
       waddle = Math.sin(t * 0.9) * 0.012;
@@ -8419,8 +8432,8 @@ window.TownScene = (function () {
       var pw = paws[i];
       if (moving) {
         var ph = catPhase + (i % 2 === 0 ? 0 : Math.PI) + (i > 1 ? 0.3 : 0);
-        pw.position.y = pw.userData.baseY + Math.max(0, Math.sin(ph)) * 0.07;
-        pw.rotation.x = Math.sin(ph) * 0.5;
+        pw.position.y = pw.userData.baseY + Math.max(0, Math.sin(ph)) * 0.048;
+        pw.rotation.x = Math.sin(ph) * 0.42;
       } else {
         pw.position.y += (pw.userData.baseY - pw.position.y) * Math.min(1, dt * 8);
         pw.rotation.x += (0 - pw.rotation.x) * Math.min(1, dt * 8);
