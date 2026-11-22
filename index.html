@@ -912,7 +912,7 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
   .stage-chip .dot{width:5px;height:5px}
   .stage-top .stage-chip:first-child{display:none}
   .stage-hint{bottom:9px;font-size:9px;padding:5px 11px;white-space:normal;text-align:center;max-width:92%;line-height:1.5}
-  .blabel{transform:translate(-50%,-100%) scale(.76)}
+  .blabel{transform:translate(-50%,-100%) scale(.7)}
   .blabel-in{padding:5px 9px 5px 8px;gap:5px}
   .blabel b{font-size:10px}
   .blabel .bicon{font-size:11px}
@@ -5461,7 +5461,7 @@ window.TownScene = (function () {
   var catGroup, catInner, catHead, eyeL, eyeR, earL, earR, tailGroup, paws = [], arms = [];
   var labelsEl, labelDefs = [];
   var pickables = [], onPickCb = null;
-  var decorGroup, sparkleList = [], clouds = [], waterRings = [], floatLanterns = [], waterfallMats = [], foamBits = [], glows = [];
+  var decorGroup, sparkleList = [], clouds = [], waterRings = [], floatLanterns = [], waterfallMats = [], foamBits = [], glows = [], petalDrifts = [];
   var ready = false, errored = false;
   var catTarget = null, catMoving = false, catPhase = 0, blinkT = 3, blinkPhase = 0, earTwitch = 0;
   var jumpT = 0, currentLevel = 1, ribbonGrp = null, hatGrp = null, bowGrp = null, scarfGrp = null;
@@ -5490,10 +5490,25 @@ window.TownScene = (function () {
     waterColor: [0x1a3157, 0x8ec3dd], waterEmi: [0x0a1a2e, 0x1f6383]
   };
   function localIsDay() { var h = new Date().getHours(); return h >= 6 && h < 18; }
-  var camSph = { theta: 0.03, phi: 1.17, radius: 20.0 };
+  var camSph = { theta: 0.03, phi: 1.17, radius: 44.0 };
   var target = null;
-  var R_WALK = 7.35;
+  /* ---------- 마을 배치 — 본섬(광장) + 아치 다리 + 공원 섬 ---------- */
+  var MAIN_R = 13.0;                  // 본섬 바닥 반지름
+  var MAIN_WALK = 11.55;              // 본섬에서 걸을 수 있는 반지름
+  var MAIN_RIM = 12.6;                // 본섬 난간(성벽) 반지름
+  var PARK = { x: 25.4, z: -1.6, r: 9.0, walk: 7.85, rim: 8.6 };
+  var BRIDGE = { z: -1.6, hw: 0.95, x0: 11.55, x1: 17.05, peak: 0.8, deckY: 0.03 };
+  var TOWN = { cx: 10.3, cz: -0.2 };   // 화면 구성용 마을 중심
+  var R_WALK = MAIN_WALK;
   var obstacles = [];
+  /* 섬 바닥에 그릴 돌길 (x0,z0,x1,z1,개수,반지름) */
+  var MAIN_PATHS = [];
+  var PARK_PATHS = [
+    [17.4, -1.7, 26.0, -2.8, 8, 0.3]        // 다리 → 투두 공방
+  ];
+  var groundPicks = [];                // 걸어 다닐 수 있는 바닥 메시(본섬 · 공원 섬 · 다리)
+  var parkGround = null;
+  var routePts = [];                   // 용쥬가 따라갈 경유지(다리 건널 때)
 
   var CDN = [
     'https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js',
@@ -5668,20 +5683,34 @@ window.TownScene = (function () {
   }
 
   /* ---------- textures ---------- */
-  function plazaTexture() {
+  function plazaTexture(plazaFrac) {
     return canvasTex(1024, 1024, function (g) {
-      var C = 512, R = 408;
+      var C = 512, R = 512 * (plazaFrac || 0.62);
+      var K = R / 408;
       // moss base
       g.fillStyle = '#2e4a3c'; g.fillRect(0, 0, 1024, 1024);
-      for (var i = 0; i < 7000; i++) {
+      for (var i = 0; i < 9000; i++) {
         var x = Math.random() * 1024, y = Math.random() * 1024;
         g.fillStyle = 'rgba(' + (52 + Math.random() * 58 | 0) + ',' + (94 + Math.random() * 62 | 0) + ',' + (74 + Math.random() * 52 | 0) + ',' + (0.05 + Math.random() * 0.2) + ')';
         g.fillRect(x, y, 2 + Math.random() * 5, 2 + Math.random() * 4);
       }
-      // plaza
+      // grass tufts + tiny blossoms outside the plaza
+      for (var t = 0; t < 900; t++) {
+        var at = Math.random() * Math.PI * 2, rt = R + 8 + Math.random() * Math.max(20, 500 - R);
+        var px = C + Math.cos(at) * rt, py = C + Math.sin(at) * rt;
+        g.strokeStyle = 'rgba(126,196,150,' + (0.2 + Math.random() * 0.4) + ')';
+        g.lineWidth = 1.6;
+        g.beginPath(); g.moveTo(px, py); g.lineTo(px + (Math.random() - .5) * 6, py - 5 - Math.random() * 5); g.stroke();
+        if (Math.random() > 0.82) {
+          g.fillStyle = ['#f7b6d0', '#ffd9a3', '#e7c9ff', '#fff0b8'][Math.random() * 4 | 0];
+          g.beginPath(); g.arc(px, py - 6, 2.4 + Math.random() * 2, 0, Math.PI * 2); g.fill();
+        }
+      }
+      // plaza — the 408-radius stone design scaled into this island
       g.save();
-      g.beginPath(); g.arc(C, C, R + 6, 0, Math.PI * 2); g.clip();
-      g.fillStyle = '#40373f'; g.fillRect(0, 0, 1024, 1024);
+      g.beginPath(); g.arc(C, C, R + 5, 0, Math.PI * 2); g.clip();
+      g.translate(C, C); g.scale(K, K); g.translate(-C, -C);
+      g.fillStyle = '#40373f'; g.fillRect(-40, -40, 1104, 1104);
       // center stone + concentric fan rings
       g.fillStyle = '#8e8080';
       g.beginPath(); g.arc(C, C, 22, 0, Math.PI * 2); g.fill();
@@ -5716,7 +5745,7 @@ window.TownScene = (function () {
       sheen.addColorStop(0, 'rgba(255,222,180,.12)');
       sheen.addColorStop(0.5, 'rgba(255,206,166,.03)');
       sheen.addColorStop(1, 'rgba(12,8,18,.34)');
-      g.fillStyle = sheen; g.fillRect(0, 0, 1024, 1024);
+      g.fillStyle = sheen; g.fillRect(-40, -40, 1104, 1104);
       // faint paw impressions
       [[300, 620, 0.5], [700, 560, -0.7], [520, 720, 1.9]].forEach(function (p) {
         g.save(); g.translate(p[0], p[1]); g.rotate(p[2]);
@@ -5735,24 +5764,56 @@ window.TownScene = (function () {
         g.fillRect(C + Math.cos(aq) * rq, C + Math.sin(aq) * rq, 2.4, 2.2);
       }
       g.restore();
+      // stepping-stone paths out to the buildings
+      drawPathStones(g, MAIN_PATHS, MAIN_R);
       // moss creeping over the plaza rim
-      for (var m = 0; m < 900; m++) {
-        var am = Math.random() * Math.PI * 2, rm = R - 20 + Math.random() * 46;
+      for (var m = 0; m < 1400; m++) {
+        var am = Math.random() * Math.PI * 2, rm = R - 14 + Math.random() * 34;
         g.fillStyle = 'rgba(' + (76 + Math.random() * 40 | 0) + ',' + (128 + Math.random() * 50 | 0) + ',' + (96 + Math.random() * 40 | 0) + ',' + (0.12 + Math.random() * 0.4) + ')';
         g.beginPath();
-        g.arc(C + Math.cos(am) * rm, C + Math.sin(am) * rm, 2 + Math.random() * 7, 0, Math.PI * 2);
+        g.arc(C + Math.cos(am) * rm, C + Math.sin(am) * rm, 2 + Math.random() * 6, 0, Math.PI * 2);
         g.fill();
       }
-      // grass tufts + tiny blossoms outside the plaza
-      for (var t = 0; t < 520; t++) {
-        var at = Math.random() * Math.PI * 2, rt = R + 8 + Math.random() * 100;
+    });
+  }
+
+  /* 공원 섬 바닥 — 잔디 + 다리에서 이어지는 흙길 + 꽃밭 얼룩 */
+  function parkGroundTexture() {
+    return canvasTex(1024, 1024, function (g) {
+      var C = 512;
+      g.fillStyle = '#3a5c44'; g.fillRect(0, 0, 1024, 1024);
+      for (var i = 0; i < 11000; i++) {
+        var x = Math.random() * 1024, y = Math.random() * 1024;
+        g.fillStyle = 'rgba(' + (58 + Math.random() * 62 | 0) + ',' + (104 + Math.random() * 66 | 0) + ',' + (80 + Math.random() * 54 | 0) + ',' + (0.05 + Math.random() * 0.22) + ')';
+        g.fillRect(x, y, 2 + Math.random() * 5, 2 + Math.random() * 4);
+      }
+      // soft dirt path running in from the bridge (the bridge comes from -x)
+      var grd = g.createLinearGradient(70, C, 520, C);
+      grd.addColorStop(0, 'rgba(132,112,88,.62)');
+      grd.addColorStop(1, 'rgba(132,112,88,.06)');
+      g.fillStyle = grd;
+      g.beginPath();
+      g.moveTo(40, C - 38); g.quadraticCurveTo(300, C - 46, 470, C - 30);
+      g.quadraticCurveTo(545, C, 480, C + 34);
+      g.quadraticCurveTo(300, C + 48, 40, C + 40);
+      g.closePath(); g.fill();
+      for (var s = 0; s < 520; s++) {
+        var a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * 500;
+        g.fillStyle = 'rgba(' + (198 + Math.random() * 40 | 0) + ',' + (186 + Math.random() * 38 | 0) + ',' + (150 + Math.random() * 40 | 0) + ',' + (0.05 + Math.random() * 0.16) + ')';
+        g.beginPath(); g.arc(C + Math.cos(a) * r, C + Math.sin(a) * r, 1.6 + Math.random() * 3.4, 0, Math.PI * 2); g.fill();
+      }
+      // stepping-stone path from the bridge to the todo atelier
+      drawPathStones(g, PARK_PATHS, PARK.r);
+      // grass tufts and tiny blossoms
+      for (var t = 0; t < 1100; t++) {
+        var at = Math.random() * Math.PI * 2, rt = 60 + Math.random() * 460;
         var px = C + Math.cos(at) * rt, py = C + Math.sin(at) * rt;
-        g.strokeStyle = 'rgba(126,196,150,' + (0.2 + Math.random() * 0.4) + ')';
-        g.lineWidth = 1.6;
-        g.beginPath(); g.moveTo(px, py); g.lineTo(px + (Math.random() - .5) * 6, py - 5 - Math.random() * 5); g.stroke();
-        if (Math.random() > 0.82) {
-          g.fillStyle = ['#f7b6d0', '#ffd9a3', '#e7c9ff', '#fff0b8'][Math.random() * 4 | 0];
-          g.beginPath(); g.arc(px, py - 6, 2.4 + Math.random() * 2, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = 'rgba(140,206,158,' + (0.18 + Math.random() * 0.4) + ')';
+        g.lineWidth = 1.7;
+        g.beginPath(); g.moveTo(px, py); g.lineTo(px + (Math.random() - .5) * 7, py - 6 - Math.random() * 6); g.stroke();
+        if (Math.random() > 0.86) {
+          g.fillStyle = ['#f7b6d0', '#ffd9a3', '#e7c9ff', '#fff0b8', '#ffc2d6'][Math.random() * 5 | 0];
+          g.beginPath(); g.arc(px, py - 6, 2.6 + Math.random() * 2.4, 0, Math.PI * 2); g.fill();
         }
       }
     });
@@ -6062,33 +6123,115 @@ window.TownScene = (function () {
     floatLanterns.push(g);
     return g;
   }
-  function makeDock() {
+  /* 부두 — 섬 가장자리에서 물 위로 뻗는 나무 산책로 + 정박한 돛단배 */
+  function makeSailboat() {
     var g = new THREE.Group();
-    var plank = M.woodLight;
-    for (var i = 0; i < 7; i++) {
-      g.add(box(0.32, 0.09, 1.9, plank, -0.96 + i * 0.33, 0, 0));
-    }
-    // posts
-    [[-1.02, -0.85], [1.02, -0.85], [-1.02, 0.9], [1.02, 0.9]].forEach(function (p) {
-      g.add(cyl(0.08, 0.09, 1.1, 7, M.wood, p[0], -0.45, p[1]));
+    var hullM = mat(0xd8cbb8, { rough: 0.72 });
+    var hull = sph(0.62, hullM, 0, 0.2, 0, 16);
+    hull.scale.set(0.82, 0.62, 1.75); g.add(hull);
+    // boat's tumblehome: a slimmer upper hull band
+    var band = sph(0.6, mat(0x5f9fc4, { rough: 0.7 }), 0, 0.34, 0, 16);
+    band.scale.set(0.8, 0.16, 1.7); g.add(band);
+    // pointed bow
+    var bow = new THREE.Mesh(new THREE.ConeGeometry(0.34, 0.72, 10), hullM);
+    bow.rotation.x = Math.PI / 2; bow.position.set(0, 0.2, 1.16);
+    bow.scale.set(0.78, 1, 0.62); g.add(bow);
+    // deck
+    g.add(box(0.74, 0.07, 1.6, mat(0xb08a68, { rough: 0.9 }), 0, 0.42, -0.06));
+    [-1, 1].forEach(function (sd) {
+      g.add(box(0.07, 0.1, 1.6, mat(0x8a6444, { rough: 0.9 }), sd * 0.36, 0.46, -0.06));
     });
-    // lantern post
-    g.add(cyl(0.06, 0.07, 1.5, 8, M.wood, 1.0, 0.75, 0.86));
-    g.add(box(0.34, 0.06, 0.06, M.wood, 0.86, 1.5, 0.86));
-    var lant = makeLantern(0, 0, 1.15);
-    lant.position.set(0.72, 1.16, 0.86);
-    lant.userData.baseY = 1.16;
-    floatLanterns.splice(floatLanterns.indexOf(lant), 1);   // dock lantern does not bob on water
-    g.add(lant);
-    var pl = new THREE.PointLight(0xffb070, 0.9, 6, 2);
-    pl.position.set(0.72, 1.2, 0.86); g.add(pl);
-    // crate + rope coil
-    g.add(box(0.42, 0.34, 0.42, M.wood, -0.7, 0.22, -0.5));
-    g.add(box(0.44, 0.05, 0.44, M.woodLight, -0.7, 0.4, -0.5));
-    var coil = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.05, 6, 14), mat(0xcaa87c, { rough: 1 }));
-    coil.rotation.x = Math.PI / 2; coil.position.set(0.55, 0.07, -0.62); g.add(coil);
-    g.position.set(7.6, -0.92, 9.4);
-    g.rotation.y = -0.7;
+    g.add(box(0.74, 0.1, 0.07, mat(0x8a6444, { rough: 0.9 }), 0, 0.46, -0.86));
+    // mast
+    g.add(cyl(0.035, 0.048, 2.1, 8, mat(0x5b3f2c, { rough: 0.9 }), 0, 1.32, 0.05));
+    // pink sail
+    var shape = new THREE.Shape();
+    shape.moveTo(0, 0);
+    shape.quadraticCurveTo(0.86, 0.92, 0.2, 1.78);
+    shape.lineTo(0, 1.78);
+    shape.closePath();
+    var sail = new THREE.Mesh(new THREE.ShapeGeometry(shape),
+      new THREE.MeshStandardMaterial({ color: 0xd96d95, roughness: 0.86, side: THREE.DoubleSide, emissive: 0x3a1224, emissiveIntensity: 0.25 }));
+    sail.position.set(0.03, 0.5, 0.1);
+    sail.rotation.y = Math.PI / 2;
+    sail.castShadow = true;
+    g.add(sail);
+    // little flag at the mast top
+    g.add(cyl(0.012, 0.012, 0.34, 6, M.gold, 0, 2.56, 0.05));
+    var flag = plane(0.3, 0.18, mat(0xd96d95, { rough: 0.9, side: THREE.DoubleSide }), 0.15, 2.56, 0.05);
+    g.add(flag);
+    // tiny bumpers + rope
+    g.add(sph(0.09, mat(0xf3a25a, { rough: 0.9 }), 0.52, 0.3, 0.3, 8));
+    g.add(sph(0.09, mat(0xf3a25a, { rough: 0.9 }), -0.52, 0.3, 0.3, 8));
+    g.userData.phase = Math.random() * Math.PI * 2;
+    return g;
+  }
+
+  function makePier(angle, rim) {
+    var g = new THREE.Group();
+    var deckA = mat(0x4e3626, { rough: 0.92 });        // 밝은 낮 조명에서도 나무색이 살아나게 진하게
+    var deckB = mat(0x6a4a31, { rough: 0.92 });
+    var IN = -2.6, OUT = 5.6, W = 2.05;                 // inside the rim → out over the water
+    var LEN = OUT - IN, zc = (IN + OUT) / 2;
+    // deck planks
+    for (var i = 0; i < 28; i++) {
+      var z = IN + (i + 0.5) * (LEN / 28);
+      var pl = box(W, 0.1, LEN / 28 - 0.035, i % 3 === 0 ? deckB : deckA, 0, 0.02, z);
+      pl.rotation.x = 0;
+      g.add(pl);
+    }
+    // side beams
+    [-1, 1].forEach(function (s) {
+      g.add(box(0.15, 0.18, LEN, deckA, s * (W / 2 - 0.06), -0.08, zc));
+    });
+    // support posts standing in the water
+    for (var p = 0; p < 5; p++) {
+      var pz = IN + 1.0 + p * (LEN - 2.0) / 4;
+      [-1, 1].forEach(function (s) {
+        g.add(cyl(0.11, 0.14, 1.75, 7, deckA, s * (W / 2 - 0.14), -0.9, pz));
+        g.add(cyl(0.15, 0.15, 0.09, 8, mat(0x8a6444, { rough: 0.95 }), s * (W / 2 - 0.14), 0.11, pz));
+      });
+    }
+    // low rope rail on the water side + posts
+    [-1, 1].forEach(function (s) {
+      for (var q = 0; q < 5; q++) {
+        var qz = IN + 1.2 + q * (LEN - 2.2) / 4;
+        g.add(cyl(0.05, 0.06, 0.62, 6, deckA, s * (W / 2 - 0.03), 0.33, qz));
+      }
+      g.add(rod(s * (W / 2 - 0.03), 0.56, IN + 1.2, s * (W / 2 - 0.03), 0.56, OUT - 1.0, 0.035, mat(0xd8c3a8, { rough: 0.9 })));
+    });
+    // lantern at the far end
+    g.add(cyl(0.06, 0.075, 1.5, 8, M.wood, W / 2 - 0.1, 0.75, OUT - 0.5));
+    g.add(box(0.36, 0.06, 0.06, M.wood, W / 2 - 0.26, 1.48, OUT - 0.5));
+    var lan = groundLantern(1.15);
+    lan.position.set(W / 2 - 0.42, 1.58, OUT - 0.5);
+    g.add(lan);
+    var pl2 = new THREE.PointLight(0xffb070, 1.0, 7.5, 2);
+    pl2.position.set(W / 2 - 0.42, 1.6, OUT - 0.5); g.add(pl2);
+    // crates · rope coil · life ring
+    g.add(box(0.44, 0.36, 0.44, M.wood, -0.66, 0.24, IN + 0.9));
+    g.add(box(0.46, 0.05, 0.46, M.woodLight, -0.66, 0.44, IN + 0.9));
+    g.add(box(0.34, 0.28, 0.34, M.wood, -0.26, 0.2, IN + 1.3));
+    var coil = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.05, 6, 14), mat(0xd8c3a8, { rough: 1 }));
+    coil.rotation.x = Math.PI / 2; coil.position.set(0.5, 0.08, IN + 1.1); g.add(coil);
+    var ring = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.055, 7, 16), mat(0xf6f0e2, { rough: 0.9 }));
+    ring.rotation.y = Math.PI / 2; ring.position.set(W / 2 - 0.02, 0.6, OUT - 2.2); g.add(ring);
+    // moored pastel sailboat
+    var boat = makeSailboat();
+    boat.position.set(-(W / 2 + 1.35), -1.06, OUT - 1.4);
+    boat.rotation.y = -0.95;
+    boat.userData.baseY = -1.02;
+    floatLanterns.push(boat);
+    g.add(boat);
+    // a couple of water sparkles by the pier
+    for (var s2 = 0; s2 < 5; s2++) {
+      var sp = sparkSprite(0xdff4ff, 0.5, 0.7);
+      sp.position.set((Math.random() - 0.5) * 2.4, -0.98, IN + 2 + Math.random() * (OUT - IN - 2));
+      pulseGlow(sp, 0.7, 1.1 + Math.random(), 0.4);
+      g.add(sp);
+    }
+    g.position.set(Math.sin(angle) * rim, 0, Math.cos(angle) * rim);
+    g.rotation.y = angle;
     return g;
   }
   function makeStreetLamp(x, z, warm, withLight) {
@@ -6355,21 +6498,27 @@ window.TownScene = (function () {
   /* ---------- island scaffolding ---------- */
   function addObstacle(x, z, r) { obstacles.push({ x: x, z: z, r: r }); }
 
-  function makeParapet() {
+  /* 난간(성벽) — 반지름과 틈(계단 · 다리 · 부두 · 폭포 자리)을 받아서 만든다 */
+  function makeParapet(cx, cz, rim, gaps, opts) {
+    opts = opts || {};
+    gaps = gaps || [];
     var g = new THREE.Group();
     var geo = new THREE.BoxGeometry(0.58, 0.32, 0.34);
     var buckets = [0x9c8d9a, 0xa899a4, 0x8f8090, 0xb2a3ac];
+    function inGap(a) {
+      for (var i = 0; i < gaps.length; i++) {
+        if (angDist(a, gaps[i][0]) < gaps[i][1]) return true;
+      }
+      return false;
+    }
     var items = [];
-    var N = 96;
+    var N = Math.round(rim * 11.2);
     for (var i = 0; i < N; i++) {
       var a = i / N * Math.PI * 2;
-      // gaps for the stairs and both waterfalls
-      if (Math.abs(a) < 0.15) continue;
-      if (Math.abs(a - 0.78) < 0.105 || Math.abs(a + 0.78) < 0.105) continue;
-      var r = 8.42;
-      var x = Math.sin(a) * r, z = Math.cos(a) * r;
+      if (inGap(a)) continue;
+      var x = Math.sin(a) * rim, z = Math.cos(a) * rim;
       items.push({ a: a, x: x, z: z, y: 0.18 + Math.random() * 0.03, rot: a, sc: 0.92 + Math.random() * 0.16 });
-      items.push({ a: a, x: Math.sin(a) * 8.5, z: Math.cos(a) * 8.5, y: -0.16, rot: a, sc: 0.9 + Math.random() * 0.18 });
+      items.push({ a: a, x: Math.sin(a) * (rim + 0.08), z: Math.cos(a) * (rim + 0.08), y: -0.16, rot: a, sc: 0.9 + Math.random() * 0.18 });
     }
     buckets.forEach(function (col, bi) {
       var sub = items.filter(function (_, idx) { return idx % 4 === bi; });
@@ -6392,9 +6541,8 @@ window.TownScene = (function () {
     var caps = [];
     for (var ci = 0; ci < N; ci++) {
       var ca2 = ci / N * Math.PI * 2;
-      if (Math.abs(ca2) < 0.15) continue;
-      if (Math.abs(ca2 - 0.78) < 0.105 || Math.abs(ca2 + 0.78) < 0.105) continue;
-      caps.push({ a: ca2, x: Math.sin(ca2) * 8.42, z: Math.cos(ca2) * 8.42 });
+      if (inGap(ca2)) continue;
+      caps.push({ a: ca2, x: Math.sin(ca2) * rim, z: Math.cos(ca2) * rim });
     }
     var capMesh = new THREE.InstancedMesh(capGeo, mat(0xb6a7ac, { rough: 0.96, flat: true }), caps.length);
     capMesh.castShadow = true; capMesh.receiveShadow = true;
@@ -6407,15 +6555,30 @@ window.TownScene = (function () {
     });
     capMesh.instanceMatrix.needsUpdate = true;
     g.add(capMesh);
-    // buttress pillars
-    for (var p = 0; p < 12; p++) {
-      var pa = p / 12 * Math.PI * 2 + 0.26;
-      if (Math.abs(pa) < 0.3) continue;
-      if (Math.abs(pa - 0.78) < 0.18 || Math.abs(pa + 0.78) < 0.18) continue;
-      var bx = Math.sin(pa) * 8.62, bz = Math.cos(pa) * 8.62;
-      g.add(box(0.34, 1.5, 0.3, mat(0xa294a0, { rough: 0.98, flat: true }), bx, -0.55, bz));
-      g.add(box(0.44, 0.14, 0.4, mat(0xb5a7b1, { rough: 0.95 }), bx, 0.12, bz));
+    // buttress pillars under the rim (instanced — one call each)
+    var nb = Math.round(rim * 1.9);
+    var btGeo = new THREE.BoxGeometry(0.34, 1.5, 0.3);
+    var btCapGeo = new THREE.BoxGeometry(0.44, 0.14, 0.4);
+    var btList = [];
+    for (var p = 0; p < nb; p++) {
+      var pa = p / nb * Math.PI * 2 + 0.26;
+      if (inGap(pa)) continue;
+      btList.push({ x: Math.sin(pa) * (rim + 0.2), z: Math.cos(pa) * (rim + 0.2), rot: pa });
     }
+    if (btList.length) {
+      var btMesh = new THREE.InstancedMesh(btGeo, mat(0xa294a0, { rough: 0.98, flat: true }), btList.length);
+      var btCap = new THREE.InstancedMesh(btCapGeo, mat(0xb5a7b1, { rough: 0.95 }), btList.length);
+      btMesh.castShadow = true; btMesh.receiveShadow = true;
+      var bm4 = new THREE.Matrix4(), bq = new THREE.Quaternion(), bv = new THREE.Vector3(), bs = new THREE.Vector3(1, 1, 1);
+      btList.forEach(function (b, k) {
+        bq.setFromEuler(new THREE.Euler(0, b.rot, 0));
+        bv.set(b.x, -0.55, b.z); bm4.compose(bv, bq, bs); btMesh.setMatrixAt(k, bm4);
+        bv.set(b.x, 0.12, b.z); bm4.compose(bv, bq, bs); btCap.setMatrixAt(k, bm4);
+      });
+      btMesh.instanceMatrix.needsUpdate = true; btCap.instanceMatrix.needsUpdate = true;
+      g.add(btMesh); g.add(btCap);
+    }
+    g.position.set(cx, 0, cz);
     return g;
   }
 
@@ -6445,9 +6608,9 @@ window.TownScene = (function () {
     return g;
   }
 
-  function makeWaterfall(angle) {
+  function makeWaterfall(angle, rim) {
     var g = new THREE.Group();
-    var OUT = 8.62;                       // just outside the parapet stones
+    var OUT = (rim || MAIN_RIM) + 0.2;    // just outside the parapet stones
     var H = 1.55;
     var geo = new THREE.PlaneGeometry(1.16, H, 12, 12);
     var pos = geo.attributes.position;
@@ -6507,6 +6670,263 @@ window.TownScene = (function () {
     g.position.set(Math.sin(angle) * OUT, 0, Math.cos(angle) * OUT);
     g.rotation.y = angle;
     return g;
+  }
+
+  /* ============================================================
+     두 개의 섬 · 아치 다리 · 부두 — 넓어진 마을의 뼈대
+     ============================================================ */
+  /* 섬 하나의 바닥(절벽 · 뿌리 · 잔디/광장)을 만든다 */
+  function makeIslandBase(cx, cz, RAD, opts) {
+    opts = opts || {};
+    var g = new THREE.Group();
+    g.add(cyl(RAD * 0.995, RAD * 0.84, 2.5, 64, mat(0x4d4258, { rough: 1, flat: true }), 0, -1.35, 0));
+    var under = new THREE.Mesh(new THREE.ConeGeometry(RAD * 0.82, 5.4, 26), mat(0x392f46, { rough: 1, flat: true }));
+    under.rotation.x = Math.PI; under.position.y = -5.2; g.add(under);
+    // rock outcrops around the cliff
+    var rocks = Math.round(RAD * 0.85);
+    for (var ro = 0; ro < rocks; ro++) {
+      var ra = Math.random() * Math.PI * 2, rr = RAD * (0.86 + Math.random() * 0.08);
+      var rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.5 + Math.random() * 0.55, 0), mat(0x463a53, { rough: 1, flat: true }));
+      rock.position.set(Math.cos(ra) * rr, -1.6 - Math.random(), Math.sin(ra) * rr);
+      rock.rotation.set(Math.random(), Math.random(), Math.random());
+      g.add(rock);
+    }
+    var ground = new THREE.Mesh(
+      new THREE.CircleGeometry(RAD, 96),
+      mat(0xffffff, { map: opts.park ? parkGroundTexture() : plazaTexture(opts.plaza || 0.505), rough: 1 })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = 0.01;
+    ground.receiveShadow = true;
+    g.add(ground);
+    g.position.set(cx, 0, cz);
+    groundPicks.push(ground);
+    if (opts.park) parkGround = ground; else groundMesh = ground;
+    return g;
+  }
+
+  /* 다리 위 바닥 높이(아치) */
+  function bridgeY(x) {
+    var u = (x - BRIDGE.x0) / (BRIDGE.x1 - BRIDGE.x0);
+    if (u <= 0 || u >= 1) return 0.02;
+    return 0.02 + Math.sin(Math.PI * u) * BRIDGE.peak;
+  }
+
+  /* 양쪽 섬을 잇는 아치 나무다리 — 난간 · 등불 기둥 · 돌기둥 */
+  function makeBridge() {
+    var g = new THREE.Group();
+    var x0 = BRIDGE.x0, x1 = BRIDGE.x1, L = x1 - x0, W = BRIDGE.hw * 2, zc = BRIDGE.z;
+    var N = 36;
+    var planks = new THREE.Group();
+    for (var i = 0; i < N; i++) {
+      var u0 = i / N, u1 = (i + 1) / N;
+      var xa = x0 + u0 * L, xb = x0 + u1 * L;
+      var ya = bridgeY(xa), yb = bridgeY(xb);
+      var pl = box(xb - xa - 0.035, 0.1, W, i % 3 === 0 ? M.wood : M.woodLight, (xa + xb) / 2, (ya + yb) / 2 - 0.05, zc);
+      pl.rotation.z = Math.atan2(yb - ya, xb - xa);
+      planks.add(pl);
+    }
+    g.add(planks);
+    // invisible pick strips so a click between two planks still lands on the deck
+    var pickMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+    for (var pi = 0; pi < 8; pi++) {
+      var pa2 = x0 + pi * L / 8, pb2 = x0 + (pi + 1) * L / 8;
+      var pk = box(pb2 - pa2, 0.1, W, pickMat, (pa2 + pb2) / 2, (bridgeY(pa2) + bridgeY(pb2)) / 2 - 0.03, zc);
+      pk.castShadow = false; pk.receiveShadow = false;
+      planks.add(pk);
+    }
+    groundPicks.push(planks);          // 다리 위를 눌러도 용쥬가 그쪽으로 걸어간다
+    // deck beams under the planks (both sides)
+    [-1, 1].forEach(function (s) {
+      var zz = zc + s * (W / 2 - 0.12);
+      for (var i = 0; i < N; i += 2) {
+        var xa = x0 + (i / N) * L, xb = x0 + (Math.min(N, i + 2) / N) * L;
+        g.add(rod(xa, bridgeY(xa) - 0.16, zz, xb, bridgeY(xb) - 0.16, zz, 0.075, M.wood));
+      }
+    });
+    // railings: posts + top rail on both sides
+    [-1, 1].forEach(function (s) {
+      var zz = zc + s * (W / 2 + 0.02);
+      var prev = null;
+      for (var i = 0; i <= N; i += 3) {
+        var u = Math.min(1, i / N);
+        var x = x0 + u * L, y = bridgeY(x);
+        var post = cyl(0.05, 0.062, 0.66, 7, M.wood, x, y + 0.3, zz);
+        g.add(post);
+        g.add(sph(0.075, M.gold, x, y + 0.64, zz, 8));
+        if (prev) {
+          g.add(rod(prev[0], prev[1] + 0.56, zz, x, y + 0.56, zz, 0.042, M.woodLight));
+        }
+        prev = [x, y];
+      }
+    });
+    // stone pillars standing in the water (like the little bridge in the plan)
+    [0.18, 0.5, 0.82].forEach(function (u, idx) {
+      var x = x0 + u * L, y = bridgeY(x);
+      var h = y + 1.78;
+      g.add(cyl(0.26, 0.34, h, 12, mat(0xc9bcc4, { rough: 0.94, flat: true }), x, -1.78 + h / 2, zc));
+      g.add(cyl(0.42, 0.46, 0.16, 12, mat(0xb3a4ae, { rough: 0.95 }), x, -1.6, zc));
+      g.add(box(0.72, 0.1, W * 0.82, mat(0xb9acb4, { rough: 0.94 }), x, y - 0.2, zc));
+    });
+    // warm lantern posts at both ends and on the crest
+    [[x0 + 0.35, 1], [x0 + 0.35, -1], [x1 - 0.35, 1], [x1 - 0.35, -1], [(x0 + x1) / 2, 1], [(x0 + x1) / 2, -1]].forEach(function (p, idx) {
+      var x = p[0], s = p[1], y = bridgeY(x), zz = zc + s * (W / 2 + 0.02);
+      g.add(cyl(0.055, 0.07, 1.18, 8, M.wood, x, y + 0.95, zz));
+      g.add(box(0.3, 0.06, 0.06, M.wood, x - 0.1 * s, y + 1.52, zz));
+      var lan = groundLantern(1.0);
+      lan.position.set(x - 0.24 * s, y + 1.62, zz);
+      g.add(lan);
+      if (idx % 2 === 0) {
+        var pl = new THREE.PointLight(0xffb070, 0.75, 6.5, 2);
+        pl.position.set(x - 0.24 * s, y + 1.66, zz);
+        g.add(pl);
+      }
+    });
+    g.userData.planks = planks;
+    return g;
+  }
+
+  /* 광장 한가운데의 반짝이는 돌 분수 */
+  function makePlazaFountain(x, z) {
+    var g = new THREE.Group();
+    var stone = mat(0xa99ca6, { rough: 0.92 });
+    var stoneL = mat(0xc3b6bc, { rough: 0.9 });
+    var waterM = mat(0x74bcdc, { em: 0x2f7fa0, ei: 0.85, rough: 0.18, metal: 0.25, tr: true, op: 0.94 });
+    g.add(cyl(2.5, 2.68, 0.5, 44, stone, 0, 0.25, 0));
+    g.add(cyl(2.58, 2.58, 0.1, 44, stoneL, 0, 0.53, 0));
+    g.add(cyl(2.34, 2.38, 0.06, 44, waterM, 0, 0.56, 0));
+    g.add(cyl(0.64, 0.86, 0.62, 20, stoneL, 0, 0.76, 0));
+    g.add(cyl(1.3, 0.56, 0.36, 28, stone, 0, 1.24, 0));
+    g.add(cyl(1.22, 1.22, 0.08, 28, waterM, 0, 1.45, 0));
+    g.add(cyl(0.3, 0.38, 0.72, 16, stoneL, 0, 1.86, 0));
+    g.add(sph(0.25, mat(0xbfeaff, { em: 0x6fc6e8, ei: 1.2, tr: true, op: 0.82, rough: 0.2 }), 0, 2.34, 0, 14));
+    // sparkling spray
+    for (var i = 0; i < 16; i++) {
+      var a = i / 16 * Math.PI * 2;
+      var sp = sparkSprite([0xd8f6ff, 0xbfeaff, 0xfff0f8][i % 3], 0.38 + Math.random() * 0.22, 0.85);
+      sp.position.set(Math.cos(a) * (1.1 + Math.random() * 0.6), 1.55 + Math.random() * 0.85, Math.sin(a) * (1.1 + Math.random() * 0.6));
+      pulseGlow(sp, 0.85, 1.6 + Math.random(), 0.3);
+      g.add(sp);
+    }
+    var halo = glowSprite(0xa9e2ff, 5.6, 0.16); halo.position.y = 1.4; g.add(halo);
+    pulseGlow(halo, 0.16, 0.8, 0.35);
+    var pl = new THREE.PointLight(0x9fd8f0, 0.8, 12, 2); pl.position.set(0, 2.3, 0); g.add(pl);
+    g.position.set(x, 0, z);
+    addObstacle(x, z, 2.76);
+    return g;
+  }
+
+  /* 공원 섬의 작은 오리 연못 */
+  function makeParkPond(x, z, r) {
+    var g = new THREE.Group();
+    // stone ring, water sits just inside it
+    for (var i = 0; i < 26; i++) {
+      var a = i / 26 * Math.PI * 2;
+      var st = cyl(0.28, 0.32, 0.2, 7, mat([0xa99ca6, 0xbdb0b8, 0x9c8d9a][i % 3], { rough: 0.95, flat: true }), Math.cos(a) * (r + 0.16), 0.1, Math.sin(a) * (r + 0.16));
+      st.rotation.y = Math.random() * 3;
+      g.add(st);
+    }
+    g.add(cyl(r + 0.16, r + 0.16, 0.08, 36, mat(0x8f8b74, { rough: 1 }), 0, 0.06, 0));
+    g.add(cyl(r, r, 0.06, 36, mat(0x2c7398, { em: 0x134a63, ei: 0.45, rough: 0.16, metal: 0.25 }), 0, 0.1, 0));
+    // lily pads
+    for (var p = 0; p < 7; p++) {
+      var pa = Math.random() * Math.PI * 2, pr = Math.random() * (r - 0.5);
+      var pad = cyl(0.14 + Math.random() * 0.1, 0.14, 0.012, 10, mat(0x4f8a5c, { rough: 0.9, em: 0x14301c, ei: 0.3 }), Math.cos(pa) * pr, 0.13, Math.sin(pa) * pr);
+      pad.scale.z = 0.82; g.add(pad);
+      if (p % 3 === 0) g.add(sph(0.05, mat(0xf7b6d0, { rough: 0.85 }), Math.cos(pa) * pr, 0.16, Math.sin(pa) * pr, 8));
+    }
+    // little wooden jetty on the pond
+    g.add(box(0.7, 0.06, 0.34, M.woodLight, 0, 0.14, -r * 0.55));
+    // ducks
+    var d1 = makeDuck(0.35, 0.3, 1.25, 0xffffff);
+    d1.position.y = 0.1; d1.userData.baseY = 0.1; d1.userData.phase = Math.random() * 6.28; d1.rotation.y = 0.6;
+    g.add(d1); floatLanterns.push(d1);
+    var d2 = makeDuck(-0.5, -0.25, 1.05, 0xfff3d0);
+    d2.position.y = 0.1; d2.userData.baseY = 0.1; d2.userData.phase = Math.random() * 6.28; d2.rotation.y = -1.9;
+    g.add(d2); floatLanterns.push(d2);
+    // reeds
+    for (var rd = 0; rd < 8; rd++) {
+      var ra = Math.random() * Math.PI * 2;
+      if (Math.abs(Math.atan2(Math.sin(ra), Math.cos(ra))) < 0.5) continue;   // keep the jetty side clear
+      var rx = Math.cos(ra) * (r - 0.1), rz = Math.sin(ra) * (r - 0.1);
+      g.add(cyl(0.02, 0.025, 0.5 + Math.random() * 0.3, 5, mat(0x6f9a5e, { rough: 1 }), rx, 0.3, rz));
+      g.add(cyl(0.045, 0.045, 0.14, 6, mat(0x8a6b3e, { rough: 1 }), rx, 0.62, rz));
+    }
+    var gl = glowSprite(0xa9e2ff, 2.6, 0.12); gl.position.y = 0.2; g.add(gl);
+    pulseGlow(gl, 0.12, 0.7, 0.3);
+    g.position.set(x, 0, z);
+    addObstacle(x, z, r + 0.5);
+    return g;
+  }
+
+  function makeDuck(x, z, s, col) {
+    var g = new THREE.Group();
+    s = s || 1;
+    var bodyM = mat(col || 0xfffaf0, { rough: 0.9 });
+    var body = sph(0.17 * s, bodyM, 0, 0.1 * s, 0, 14);
+    body.scale.set(1, 0.82, 1.4); g.add(body);
+    g.add(sph(0.1 * s, bodyM, 0, 0.26 * s, 0.12 * s, 12));
+    var beak = new THREE.Mesh(new THREE.ConeGeometry(0.045 * s, 0.13 * s, 8), mat(0xf3a25a, { rough: 0.8 }));
+    beak.position.set(0, 0.25 * s, 0.24 * s); beak.rotation.x = Math.PI / 2; g.add(beak);
+    [-1, 1].forEach(function (sd) {
+      g.add(sph(0.018 * s, mat(0x2b2230, { rough: 0.6 }), sd * 0.045 * s, 0.29 * s, 0.19 * s, 6));
+    });
+    var tail = new THREE.Mesh(new THREE.ConeGeometry(0.07 * s, 0.17 * s, 6), bodyM);
+    tail.position.set(0, 0.14 * s, -0.24 * s); tail.rotation.x = -1.15; g.add(tail);
+    g.position.set(x, 0, z);
+    return g;
+  }
+
+  /* 잔디 위로 이어지는 밟은 돌길 — 섬 바닥 텍스처에 직접 그린다 */
+  function drawPathStones(g, paths, islandR) {
+    var PP = 512 / islandR;                      // 텍스처 픽셀 / 월드 단위
+    paths.forEach(function (pa) {
+      var x0 = pa[0], z0 = pa[1], x1 = pa[2], z1 = pa[3], n = pa[4], wid = pa[5];
+      for (var i = 0; i < n; i++) {
+        var u = (i + 0.5) / n;
+        var wx = x0 + (x1 - x0) * u + (Math.random() - 0.5) * 0.22;
+        var wz = z0 + (z1 - z0) * u + (Math.random() - 0.5) * 0.22;
+        var rad = (wid || 0.42) * PP * (0.9 + Math.random() * 0.14);
+        var px = 512 + wx * PP, py = 512 - wz * PP;
+        g.fillStyle = 'rgba(' + (118 + Math.random() * 16 | 0) + ',' + (110 + Math.random() * 14 | 0) + ',' + (118 + Math.random() * 14 | 0) + ',.95)';
+        g.beginPath();
+        for (var k = 0; k < 8; k++) {
+          var aa = k / 8 * Math.PI * 2 + Math.random() * 0.1;
+          var rr = rad * (0.94 + Math.random() * 0.08);
+          var sx = px + Math.cos(aa) * rr, sy = py + Math.sin(aa) * rr;
+          if (k === 0) g.moveTo(sx, sy); else g.lineTo(sx, sy);
+        }
+        g.closePath(); g.fill();
+        g.strokeStyle = 'rgba(84,76,86,.45)'; g.lineWidth = 2; g.stroke();
+        g.strokeStyle = 'rgba(255,246,238,.18)'; g.lineWidth = 1.2; g.stroke();
+      }
+    });
+  }
+
+  /* 공원 섬 위로 흩날리는 벚꽃잎 */
+  function makePetalDrift(cx, cz, r, n) {
+    var geo = new THREE.BufferGeometry();
+    var pp = new Float32Array(n * 3);
+    for (var i = 0; i < n; i++) {
+      var a = Math.random() * Math.PI * 2, rr = Math.sqrt(Math.random()) * r;
+      pp[i * 3] = Math.cos(a) * rr; pp[i * 3 + 1] = 0.4 + Math.random() * 4.2; pp[i * 3 + 2] = Math.sin(a) * rr;
+    }
+    geo.setAttribute('position', new THREE.BufferAttribute(pp, 3));
+    var pts = new THREE.Points(geo, new THREE.PointsMaterial({
+      color: 0xffc2d8, size: 0.15, transparent: true, opacity: 0.85, depthWrite: false, sizeAttenuation: true
+    }));
+    pts.position.set(cx, 0, cz);
+    pts.userData.spin = 0.06 + Math.random() * 0.05;
+    petalDrifts.push(pts);
+    return pts;
+  }
+
+  /* 땅에 두는 등불(물 위 등불처럼 떠다니지 않게) */
+  function groundLantern(s) {
+    var l = makeLantern(0, 0, s || 1);
+    var i = floatLanterns.indexOf(l);
+    if (i > -1) floatLanterns.splice(i, 1);
+    return l;
   }
 
   /* ---------- buildings ---------- */
@@ -6668,12 +7088,12 @@ window.TownScene = (function () {
     // small planter
     g.add(makeBush(1.2, 1.62, 0.72));
 
-    g.position.set(-4.55, 0, -2.05);
-    g.rotation.y = 0.5;
-    g.scale.setScalar(1.14);
-    addObstacle(-4.55, -2.05, 2.2);
-    addObstacleAt(-4.55, -2.05, 0.5, 1.14, 1.9, 0.62, 0.46);      // table
-    addObstacleAt(-4.55, -2.05, 0.5, 1.14, -1.62, 1.32, 0.36);    // chalkboard
+    g.position.set(-7.3, 0, -6.8);
+    g.rotation.y = 0.82;
+    g.scale.setScalar(1.38);
+    addObstacle(-7.3, -6.8, 2.7);
+    addObstacleAt(-7.3, -6.8, 0.82, 1.38, 1.9, 0.62, 0.52);      // table
+    addObstacleAt(-7.3, -6.8, 0.82, 1.38, -1.62, 1.32, 0.42);    // chalkboard
     pickables.push({ obj: body, key: 'focus' });
     pickables.push({ obj: roof, key: 'focus' });
     pickables.push({ obj: clock, key: 'focus' });
@@ -6818,12 +7238,12 @@ window.TownScene = (function () {
     g.add(makeBush(-1.95, 1.35, 0.6));
     g.add(makeBush(0.9, 2.15, 0.5));
 
-    g.position.set(0.45, 0, -5.45);
-    g.rotation.y = -0.05;
-    g.scale.setScalar(1.06);
-    addObstacle(0.45, -5.45, 2.12);
-    addObstacleAt(0.45, -5.45, -0.05, 1.06, 1.95, 1.25, 0.55);   // bulletin board
-    addObstacleAt(0.45, -5.45, -0.05, 1.06, -1.62, 1.42, 0.32);  // mailbox
+    g.position.set(0.5, 0, -10.0);
+    g.rotation.y = -0.03;
+    g.scale.setScalar(1.3);
+    addObstacle(0.5, -10.0, 2.6);
+    addObstacleAt(0.5, -10.0, -0.03, 1.3, 1.95, 1.25, 0.58);   // bulletin board
+    addObstacleAt(0.5, -10.0, -0.03, 1.3, -1.62, 1.42, 0.34);  // mailbox
     pickables.push({ obj: base, key: 'career' });
     pickables.push({ obj: plaster, key: 'career' });
     pickables.push({ obj: mb.children[0], key: 'career' });
@@ -6962,11 +7382,11 @@ window.TownScene = (function () {
 
     g.add(makeBush(1.95, 1.7, 0.66));
 
-    g.position.set(4.75, 0, -1.85);
-    g.rotation.y = -0.4;
-    g.scale.setScalar(1.1);
-    addObstacle(4.75, -1.85, 2.05);
-    addObstacleAt(4.75, -1.85, -0.4, 1.1, -1.7, 1.75, 0.38);   // chalkboard
+    g.position.set(7.4, 0, -6.9);
+    g.rotation.y = -0.82;
+    g.scale.setScalar(1.38);
+    addObstacle(7.4, -6.9, 2.58);
+    addObstacleAt(7.4, -6.9, -0.82, 1.38, -1.7, 1.75, 0.44);   // chalkboard
     pickables.push({ obj: lower, key: 'lab' });
     pickables.push({ obj: dome, key: 'lab' });
     pickables.push({ obj: upper, key: 'lab' });
@@ -7018,10 +7438,10 @@ window.TownScene = (function () {
   function makeTodo() {
     var g = new THREE.Group();
     var wood = M.wood, gold = M.gold;
-    var wallM = mat(0xc2e7d1, { rough: 0.94 });          // mint plaster
-    var wallLite = mat(0xe0f4e8, { rough: 0.94 });
-    var roofM = mat(0xe8917a, { rough: 0.88 });           // peach roof
-    var roofTrim = mat(0xcf7a62, { rough: 0.9 });
+    var wallM = mat(0x86b79b, { rough: 0.94 });          // mint plaster
+    var wallLite = mat(0xa9cbb8, { rough: 0.94 });
+    var roofM = mat(0xcf6a52, { rough: 0.88 });           // peach roof
+    var roofTrim = mat(0xb85a45, { rough: 0.9 });
     var glass = M.glass;
 
     // stone footing
@@ -7058,7 +7478,7 @@ window.TownScene = (function () {
     scalGeo.rotateX(Math.PI / 2);
     for (var sc = 0; sc < 7; sc++) {
       [-1, 1].forEach(function (s) {
-        var sca = new THREE.Mesh(scalGeo, mat(sc % 2 ? 0xf8c4ad : 0xd9836b, { rough: 0.9, side: THREE.DoubleSide }));
+        var sca = new THREE.Mesh(scalGeo, mat(sc % 2 ? 0xe8a68c : 0xbe6550, { rough: 0.9, side: THREE.DoubleSide }));
         sca.position.set(-0.9 + sc * 0.3, 1.63, s * 1.09);
         g.add(sca);
       });
@@ -7157,11 +7577,11 @@ window.TownScene = (function () {
     g.add(makeBush(-1.35, -0.75, 0.5));
     g.add(makeBush(1.25, -1.05, 0.44));
 
-    g.position.set(5.0, 0, 4.2);
-    g.rotation.y = -0.42;
-    g.scale.setScalar(1.06);
-    addObstacle(5.0, 4.2, 1.8);
-    addObstacleAt(5.0, 4.2, -0.42, 1.06, 1.5, 1.28, 0.36);   // checklist board
+    g.position.set(27.3, 0, -3.9);
+    g.rotation.y = -0.5;
+    g.scale.setScalar(1.3);
+    addObstacle(27.3, -3.9, 2.22);
+    addObstacleAt(27.3, -3.9, -0.5, 1.3, 1.5, 1.28, 0.42);   // checklist board
     pickables.push({ obj: body, key: 'todo' });
     pickables.push({ obj: roof, key: 'todo' });
     pickables.push({ obj: door, key: 'todo' });
@@ -7821,18 +8241,18 @@ window.TownScene = (function () {
     wm.depthWrite = true;
     waterMat = wm;
     waterDayTex = dayWaterTexture();
-    var water = new THREE.Mesh(new THREE.CircleGeometry(44, 72), wm);
+    var water = new THREE.Mesh(new THREE.CircleGeometry(78, 84), wm);
     water.rotation.x = -Math.PI / 2;
-    water.position.y = -1.12;
+    water.position.set(TOWN.cx, -1.12, TOWN.cz);
     water.receiveShadow = false;
     scene.add(water);
 
     // shimmering overlay
     shimmerTex = shimmerTexture();
-    shimmerMesh = new THREE.Mesh(new THREE.CircleGeometry(43, 72),
+    shimmerMesh = new THREE.Mesh(new THREE.CircleGeometry(77, 84),
       new THREE.MeshBasicMaterial({ map: shimmerTex, transparent: true, opacity: 0.42, depthWrite: false, blending: THREE.AdditiveBlending }));
     shimmerMesh.rotation.x = -Math.PI / 2;
-    shimmerMesh.position.y = -1.1;
+    shimmerMesh.position.set(TOWN.cx, -1.1, TOWN.cz);
     scene.add(shimmerMesh);
 
     // moon reflection streak
@@ -7850,16 +8270,18 @@ window.TownScene = (function () {
     streakMesh = streak;
     scene.add(streak);
 
-    // gentle rings lapping the island
-    for (var w = 0; w < 4; w++) {
-      var ring = new THREE.Mesh(new THREE.RingGeometry(8.9 + w * 1.6, 9.08 + w * 1.6, 72),
-        new THREE.MeshBasicMaterial({ color: 0x9ec4f0, transparent: true, opacity: 0.1 - w * 0.018, side: THREE.DoubleSide, depthWrite: false }));
-      ring.rotation.x = -Math.PI / 2;
-      ring.position.y = -1.09;
-      ring.userData.ph = w * 1.3;
-      scene.add(ring);
-      waterRings.push(ring);
-    }
+    // gentle rings lapping both islands
+    [{ x: 0, z: 0, r: MAIN_R + 0.25, n: 4 }, { x: PARK.x, z: PARK.z, r: PARK.r + 0.25, n: 3 }].forEach(function (isl, ii) {
+      for (var w = 0; w < isl.n; w++) {
+        var ring = new THREE.Mesh(new THREE.RingGeometry(isl.r + w * 1.9, isl.r + 0.18 + w * 1.9, 84),
+          new THREE.MeshBasicMaterial({ color: 0x9ec4f0, transparent: true, opacity: 0.1 - w * 0.018, side: THREE.DoubleSide, depthWrite: false }));
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.set(isl.x, -1.09, isl.z);
+        ring.userData.ph = w * 1.3 + ii * 2;
+        scene.add(ring);
+        waterRings.push(ring);
+      }
+    });
   }
 
   /* ---------- magic dust · fireflies · water sparkles ---------- */
@@ -8030,7 +8452,7 @@ window.TownScene = (function () {
     fadeSprites(sunFade, k * wxHide);
     if (moonGrp) moonGrp.visible = k < 0.998;
     if (sunGrp) sunGrp.visible = k > 0.002;
-    if (dayAmbient) dayAmbient.intensity = 0.40 * k;
+    if (dayAmbient) dayAmbient.intensity = 0.32 * k;
     var stEl = canvasEl && canvasEl.closest ? canvasEl.closest('.stage') : null;
     if (stEl) stEl.classList.toggle('is-day', k > 0.5);
     if (fireflies) fireflies.material.uniforms.uOpacity.value = 1 - k;
@@ -8039,11 +8461,11 @@ window.TownScene = (function () {
     if (hemiLight) {
       hemiLight.color.copy(lerpHex(DAYNIGHT.hemiSky[0], DAYNIGHT.hemiSky[1], k, _cA));
       hemiLight.groundColor.copy(lerpHex(DAYNIGHT.hemiGround[0], DAYNIGHT.hemiGround[1], k, _cA));
-      hemiLight.intensity = 0.42 + 0.48 * k;
+      hemiLight.intensity = 0.42 + 0.4 * k;
     }
     if (sunLight) {
       sunLight.color.copy(lerpHex(DAYNIGHT.sunColor[0], DAYNIGHT.sunColor[1], k, _cA));
-      sunLight.intensity = 0.95 + 0.45 * k;
+      sunLight.intensity = 0.95 + 0.3 * k;
       sunLight.position.set(-12 + 26 * k, 16 + 1 * k, 9 - 18 * k);
     }
     if (fillLight) fillLight.intensity = 0.38 * (1 - 0.72 * k);
@@ -8085,6 +8507,9 @@ window.TownScene = (function () {
     // the moss plaza and stone soak up the sun (tint > 1 brightens the baked texture)
     if (groundMesh) {
       groundMesh.material.color.setRGB(1 + 0.45 * k, 1 + 0.42 * k, 1 + 0.30 * k);
+    }
+    if (parkGround) {
+      parkGround.material.color.setRGB(1 + 0.45 * k, 1 + 0.42 * k, 1 + 0.30 * k);
     }
     // 비·눈·흐림이면 해가 약해지고 공기가 탁해진다 (3D 날씨 연동)
     if (wxMix > 0.001) {
@@ -8152,7 +8577,7 @@ window.TownScene = (function () {
     makeWeather();
     moonGrp = makeMoon(); scene.add(moonGrp);
     sunGrp = makeSun(); scene.add(sunGrp);
-    [[-17, 3.4, -10, 1.25], [16.5, 2.8, -9, 1.35], [-23, 5.2, 2, 1.5], [20, 5.6, -4, 1.4], [3, 7.4, -26, 1.7], [-9, 8.2, -22, 1.2]].forEach(function (c) {
+    [[-17, 3.4, -12, 1.25], [18.5, 2.8, -11, 1.35], [-24, 5.2, 2, 1.5], [26, 5.6, -6, 1.4], [3, 7.4, -28, 1.7], [-9, 8.2, -24, 1.2], [38, 6.2, -30, 1.6], [46, 5.0, -10, 1.35]].forEach(function (c) {
       var cl = makeCloud(c[0], c[1], c[2], c[3]);
       clouds.push(cl); scene.add(cl);
     });
@@ -8161,34 +8586,27 @@ window.TownScene = (function () {
     makeMotes();
     makeWaterSparkles();
 
-    // island
-    var islandG = new THREE.Group();
-    var cliff = cyl(8.75, 7.4, 2.5, 56, mat(0x4d4258, { rough: 1, flat: true }), 0, -1.35, 0);
-    islandG.add(cliff);
-    var under = new THREE.Mesh(new THREE.ConeGeometry(7.3, 5.4, 26), mat(0x392f46, { rough: 1, flat: true }));
-    under.rotation.x = Math.PI; under.position.y = -5.2; islandG.add(under);
-    // rock outcrops
-    for (var ro = 0; ro < 9; ro++) {
-      var ra = Math.random() * Math.PI * 2, rr = 7.6 + Math.random() * 0.9;
-      var rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.5 + Math.random() * 0.5, 0), mat(0x463a53, { rough: 1, flat: true }));
-      rock.position.set(Math.cos(ra) * rr, -1.6 - Math.random(), Math.sin(ra) * rr);
-      rock.rotation.set(Math.random(), Math.random(), Math.random());
-      islandG.add(rock);
-    }
-    groundMesh = new THREE.Mesh(new THREE.CircleGeometry(8.8, 72), mat(0xffffff, { map: plazaTexture(), rough: 1 }));
-    groundMesh.rotation.x = -Math.PI / 2;
-    groundMesh.position.y = 0.01;
-    groundMesh.receiveShadow = true;
-    islandG.add(groundMesh);
-    scene.add(islandG);
+    // ── 본섬 (넓어진 광장 섬) ──────────────────────────────────
+    scene.add(makeIslandBase(0, 0, MAIN_R, { plaza: 0.55 }));
+    scene.add(makeParapet(0, 0, MAIN_RIM, [
+      { a: -0.62, w: 0.15 },      // 부두
+      { a: 1.7, w: 0.13 },        // 아치 다리
+      { a: -1.32, w: 0.1 },       // 폭포
+      { a: 1.32, w: 0.1 }         // 폭포
+    ], {}));
+    [-1.32, 1.32].forEach(function (a) { scene.add(makeWaterfall(a, MAIN_RIM)); });
+    scene.add(makePier(-0.62, MAIN_RIM));
+    scene.add(makeBridge());
 
-    scene.add(makeParapet());
-    scene.add(makeStairs());
-    [[-0.78], [0.78]].forEach(function (a) { scene.add(makeWaterfall(a[0])); });
-    scene.add(makeDock());
+    // ── 공원 섬 (오른쪽) ──────────────────────────────────────
+    scene.add(makeIslandBase(PARK.x, PARK.z, PARK.r, { park: true }));
+    scene.add(makeParapet(PARK.x, PARK.z, PARK.rim, [{ a: -Math.PI / 2, w: 0.15 }], {}));
 
-    // floating lanterns
-    var lanternSpots = [[-8.4, 5.9], [-10.4, 2.4], [-9.6, -2.4], [-5.6, -7.8], [-1.4, -9.0], [4.6, -8.4], [8.4, -4.2], [10.9, 0.2], [8.9, 7.4], [-4.0, 8.6], [2.4, 9.8], [-1.2, 11.2], [5.6, 6.2]];
+    // 광장 한가운데의 반짝이는 분수
+    scene.add(makePlazaFountain(0, 0.4));
+
+    // floating lanterns on the water around the islands
+    var lanternSpots = [[-13.6, 6.2], [-15.0, 0.6], [-12.4, -7.4], [-6.2, -14.4], [1.2, -15.0], [7.6, -13.6], [12.0, -11.6], [2.8, 14.6], [-13.6, 13.2], [10.2, 11.4], [18.4, 6.4], [21.0, -10.2], [34.8, 4.6], [35.2, -7.6], [19.8, 8.6], [-3.4, 16.0]];
     lanternSpots.forEach(function (p, i) {
       var l = makeLantern(p[0], p[1], 1 + (i % 2) * 0.15);
       scene.add(l);
@@ -8202,42 +8620,75 @@ window.TownScene = (function () {
 
     decorGroup = new THREE.Group(); scene.add(decorGroup);
 
-    // buildings
+    // buildings — 본섬 3채 + 공원 섬의 투두 공방
     scene.add(makeCafe());
     scene.add(makePost());
     scene.add(makeObs());
     scene.add(makeTodo());
 
+    // ── 본섬 돌길 · 가구 ─────────────────────────────────────
+
     // trees on the moss ring
     var trees = [
-      [-7.4, -2.6, 0.9, 'pine'], [-6.9, -6.0, 0.78, 'pine'], [6.75, -5.6, 0.86, 'round'],
-      [7.95, -2.2, 0.74, 'pine'], [-8.0, 1.9, 0.62, 'round'], [7.5, 3.8, 0.56, 'pine'],
-      [-2.9, -7.9, 0.66, 'pine'], [3.5, -8.1, 0.62, 'pine'], [-7.9, 4.7, 0.46, 'round']
+      [10.2, 3.0, 0.8, 'round'], [-10.4, 5.6, 0.86, 'pine'], [-11.2, 0.6, 0.78, 'pine'],
+      [-10.0, -4.8, 0.84, 'round'], [-5.8, -9.4, 0.9, 'pine'], [5.6, -9.6, 0.82, 'pine'],
+      [10.4, -4.6, 0.72, 'round'], [8.4, 7.4, 0.66, 'pine'], [-11.4, 3.2, 0.6, 'round'],
+      [2.6, -10.6, 0.66, 'round']
     ];
     trees.forEach(function (t) { scene.add(makeTree(t[0], t[1], t[2], t[3])); });
 
     // street lamps with real light pools
-    [[-3.05, 3.3, true, true], [3.15, 2.9, true, true], [-6.0, 0.9, false, true], [6.05, 0.4, false, true], [-2.45, -3.2, true, false]].forEach(function (p) {
-      scene.add(makeStreetLamp(p[0], p[1], p[2], p[3]));
-    });
+    var lampSpots = [[3.5, 8.2, true, true], [7.7, 3.6, true, true], [7.2, -3.3, false, true],
+      [3.4, -7.6, true, false], [-4.6, -7.6, false, true], [-7.7, 1.8, true, false], [-4.4, 8.0, false, false]];
+    lampSpots.forEach(function (p) { scene.add(makeStreetLamp(p[0], p[1], p[2], p[3])); });
 
     // props
-    scene.add(makeBench(-4.55, 3.5, 0.5));
-    scene.add(makeSignpost(3.05, 5.05));
-    var bushes = [[-0.34, 0.86], [-0.48, 0.92], [-1.05, 0.85], [0.36, 0.92], [0.52, 0.86], [1.05, 0.82], [2.3, 0.8], [-2.4, 0.78], [2.9, 0.72], [-2.95, 0.7], [1.7, 0.6], [-1.75, 0.62]];
+    scene.add(makeBench(-4.9, 6.4, 0.6));
+    scene.add(makeBench(5.3, 5.6, -0.75));
+    scene.add(makeBench(-6.4, -4.2, 1.1));
+    scene.add(makeBench(6.1, -5.1, -1.2));
+    scene.add(makeFlowerBed(2.7, 8.4));
+    scene.add(makeFlowerBed(-2.6, 8.7));
+    scene.add(makeFlowerBed(8.1, 1.2));
+    scene.add(makeFlowerBed(-8.2, -1.3));
+    scene.add(makeFlowerBed(7.6, -6.2));
+    scene.add(makeSignpost(6.7, 1.5));
+    // planters framing the bridge entrance
+    scene.add(makeBush(10.1, -0.1, 0.8));
+    scene.add(makeBush(10.1, -3.1, 0.8));
+    var bushes = [[-0.34, 0.86], [-0.95, 0.9], [0.36, 0.92], [0.95, 0.88], [1.5, 0.84], [2.15, 0.78],
+      [-1.55, 0.82], [-2.15, 0.76], [2.75, 0.7], [-2.75, 0.68], [3.4, 0.62], [-3.4, 0.6],
+      [0.05, 1.45], [2.45, 1.5], [-2.45, 1.45]];
     bushes.forEach(function (b, i) {
-      var a = b[0], r = 7.35;
+      var a = b[0], r = 11.0;
       var bx = Math.sin(a) * r, bz = Math.cos(a) * r;
       scene.add(makeBush(bx, bz, b[1] * (0.9 + (i % 3) * 0.12)));
     });
-    // two planters flanking the stairs
-    scene.add(makeBush(-1.5, 7.2, 0.75));
-    scene.add(makeBush(1.5, 7.2, 0.75));
+
+    // ── 공원 섬 — 벚꽃 · 오리 연못 · 등불 ─────────────────────
+    scene.add(makeParkPond(22.0, -4.4, 1.55));
+    [[21.2, 1.0, 0.9], [22.9, 4.2, 0.78], [29.8, 1.8, 0.92], [30.9, -5.6, 0.8], [19.8, -6.3, 0.72],
+     [25.0, -7.3, 0.74], [32.0, -1.6, 0.7], [20.0, 3.6, 0.66]].forEach(function (t) {
+      scene.add(makeTree(t[0], t[1], t[2], 'cherry'));
+    });
+    scene.add(makeTree(31.4, -2.2, 0.78, 'pine'));
+    scene.add(makeFlowerBed(24.2, 1.3));
+    scene.add(makeFlowerBed(28.8, -0.9));
+    scene.add(makeFlowerBed(20.4, -6.9));
+    scene.add(makeBench(20.8, -0.5, 1.2));
+    scene.add(makeBench(27.4, 1.9, -1.1));
+    scene.add(makeStreetLamp(18.9, -3.6, true, true));
+    scene.add(makeStreetLamp(29.4, -1.4, false, true));
+    [0.15, 1.0, -1.6, 2.5].forEach(function (a) {
+      var r = 7.6;
+      scene.add(makeBush(PARK.x + Math.sin(a) * r, PARK.z + Math.cos(a) * r, 0.62));
+    });
+    scene.add(makePetalDrift(PARK.x, PARK.z, 6.4, 170));
 
     // cat
     scene.add(makeCat());
-    catGroup.position.set(0.7, 0, 3.2);
-    catGroup.rotation.y = 0.12;
+    catGroup.position.set(0.9, 0, 4.9);
+    catGroup.rotation.y = 0.06;
 
     // click marker
     var mg = new THREE.Group();
@@ -8277,10 +8728,10 @@ window.TownScene = (function () {
     labelsEl.innerHTML = '';
     labelDefs = [];
     var defs = [
-      { key: 'focus', icon: '☕', name: '고양이 시계탑 카페', sub: '뽀모도로 · 집중', pos: [-4.55, 7.35, -2.05], pulse: true },
-      { key: 'career', icon: '✉️', name: '커리어 우체국', sub: '취업 · 이력서', pos: [0.45, 6.05, -5.45] },
-      { key: 'lab', icon: '🔭', name: '마법사 천문대', sub: '네트워크 기초 · 퀴즈', pos: [4.75, 6.95, -1.85] },
-      { key: 'todo', icon: '📝', name: '투두 공방', sub: '오늘의 할 일', pos: [5.0, 4.55, 4.2], pulse: true }
+      { key: 'focus', icon: '☕', name: '고양이 시계탑 카페', sub: '뽀모도로 · 집중', pos: [-7.3, 9.2, -6.8], pulse: true },
+      { key: 'career', icon: '✉️', name: '커리어 우체국', sub: '취업 · 이력서', pos: [0.5, 6.6, -10.0] },
+      { key: 'lab', icon: '🔭', name: '마법사 천문대', sub: '네트워크 기초 · 퀴즈', pos: [7.4, 10.2, -6.9] },
+      { key: 'todo', icon: '📝', name: '투두 공방', sub: '오늘의 할 일', pos: [27.3, 5.6, -3.9], pulse: true }
     ];
     defs.forEach(function (d) {
       var el = document.createElement('div');
@@ -8296,20 +8747,40 @@ window.TownScene = (function () {
     if (!labelDefs.length) return;
     var w = canvasEl.clientWidth, h = canvasEl.clientHeight;
     var v = new THREE.Vector3();
+    var vis = [];
     labelDefs.forEach(function (d) {
       v.copy(d.pos).project(camera);
       var visible = v.z < 1 && v.x > -1.3 && v.x < 1.3 && v.y > -1.2 && v.y < 1.2;
       if (!visible) { if (d.shown) { d.node.style.opacity = 0; d.shown = false; } return; }
       var lx = (v.x * 0.5 + 0.5) * w;
-      var pad = w < 660 ? 54 : 82;          // keep the label inside the stage on phones
+      var pad = w < 660 ? 48 : 78;          // keep the label inside the stage on phones
       if (lx < pad) lx = pad;
       else if (lx > w - pad) lx = w - pad;
-      d.node.style.left = lx.toFixed(1) + 'px';
       var ly = (-v.y * 0.5 + 0.5) * h;
-      var topPad = w < 660 ? 100 : 118;     // stay clear of the stage chips (pill + stem hang above the anchor)
+      var topPad = w < 660 ? 92 : 108;      // stay clear of the stage chips (pill + stem hang above the anchor)
       if (ly < topPad) ly = topPad;
-      d.node.style.top = ly.toFixed(1) + 'px';
-      if (!d.shown) { d.node.style.opacity = 1; d.shown = true; }
+      vis.push({ d: d, x: lx, y: ly });
+    });
+    // 두 섬의 이름표가 겹치면 아래쪽 것을 조금씩 내려 겹침을 푼다
+    var step = w < 660 ? 27 : 30;
+    var spanX = w < 660 ? 92 : 150;
+    vis.sort(function (a, b) { return a.y - b.y; });
+    for (var i = 1; i < vis.length; i++) {
+      for (var guard = 0; guard < 4; guard++) {
+        var moved = false;
+        for (var j = 0; j < i; j++) {
+          if (Math.abs(vis[i].x - vis[j].x) < spanX && Math.abs(vis[i].y - vis[j].y) < step) {
+            vis[i].y = vis[j].y + step; moved = true;
+          }
+        }
+        if (!moved) break;
+      }
+      if (vis[i].y > h - 30) vis[i].y = h - 30;
+    }
+    vis.forEach(function (o) {
+      o.d.node.style.left = o.x.toFixed(1) + 'px';
+      o.d.node.style.top = o.y.toFixed(1) + 'px';
+      if (!o.d.shown) { o.d.node.style.opacity = 1; o.d.shown = true; }
     });
   }
 
@@ -8347,18 +8818,50 @@ window.TownScene = (function () {
     }
     return null;
   }
+  /* ---------- 걸을 수 있는 곳: 본섬 · 아치 다리 · 공원 섬 ---------- */
+  function angDist(a, b) { return Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b))); }
+  function inBridge(x, z) {
+    return x > BRIDGE.x0 - 0.05 && x < BRIDGE.x1 + 0.05 && Math.abs(z - BRIDGE.z) <= BRIDGE.hw + 0.03;
+  }
+  function regionOf(x, z) {
+    if (Math.sqrt(x * x + z * z) <= MAIN_WALK + 0.55) return 'main';
+    var dx = x - PARK.x, dz = z - PARK.z;
+    if (Math.sqrt(dx * dx + dz * dz) <= PARK.walk + 0.55) return 'park';
+    if (inBridge(x, z)) return 'bridge';
+    return null;
+  }
+  /* 다리 위에서는 아치 높이를 따라 걷는다 */
+  function groundH(x, z) { return inBridge(x, z) ? bridgeY(x) : 0; }
+
   function groundPick(e) {
-    if (!groundMesh) return null;
+    if (!groundPicks.length) return null;
     var ray = screenToRay(e);
-    var hits = ray.intersectObject(groundMesh, false);
+    var hits = ray.intersectObjects(groundPicks, true);
     if (!hits.length) return null;
     return hits[0].point;
   }
 
+  function clampToWalk(x, z) {
+    if (inBridge(x, z)) {
+      var zc = Math.max(BRIDGE.z - BRIDGE.hw * 0.5, Math.min(BRIDGE.z + BRIDGE.hw * 0.5, z));
+      return { x: Math.max(BRIDGE.x0, Math.min(BRIDGE.x1, x)), z: zc };
+    }
+    var dMain = Math.sqrt(x * x + z * z);
+    var pdx = x - PARK.x, pdz = z - PARK.z, dPark = Math.sqrt(pdx * pdx + pdz * pdz);
+    if (dMain <= MAIN_WALK || dPark <= PARK.walk) return { x: x, z: z };
+    // 바다 쪽으로 나갔으면 더 가까운 섬 가장자리로 끌어당긴다
+    if (dMain - MAIN_WALK <= dPark - PARK.walk) {
+      var k = MAIN_WALK / (dMain || 1);
+      return { x: x * k, z: z * k };
+    }
+    var k2 = PARK.walk / (dPark || 1);
+    return { x: PARK.x + pdx * k2, z: PARK.z + pdz * k2 };
+  }
+
   function clampTarget(x, z) {
     var CAT_PAD = 0.18;                       // keep 용쥬's body off the walls
-    var d = Math.sqrt(x * x + z * z);
-    if (d > R_WALK) { var k = R_WALK / d; x *= k; z *= k; }
+    var p = clampToWalk(x, z);
+    x = p.x; z = p.z;
     // a few passes: pushing out of one obstacle must not push us into another
     for (var pass = 0; pass < 4; pass++) {
       var moved = false;
@@ -8375,14 +8878,29 @@ window.TownScene = (function () {
       }
       if (!moved) break;
     }
-    d = Math.sqrt(x * x + z * z);
-    if (d > R_WALK) { var k2 = R_WALK / d; x *= k2; z *= k2; }
-    return { x: x, z: z };
+    return clampToWalk(x, z);
+  }
+
+  /* 다리 양 끝 — 섬 안쪽에 있는 문턱 */
+  function bridgeGate(region) {
+    return region === 'park'
+      ? { x: BRIDGE.x1 + 0.65, z: BRIDGE.z }
+      : { x: BRIDGE.x0 - 0.65, z: BRIDGE.z };
+  }
+  /* 반대편 섬을 눌렀으면 다리 문턱을 거쳐서 간다 */
+  function waypointsTo(p, from) {
+    var there = regionOf(p.x, p.z);
+    if (!there || there === from) return [{ x: p.x, z: p.z }];
+    if (from === 'bridge') return [bridgeGate(there), { x: p.x, z: p.z }];
+    if (there === 'bridge') return [bridgeGate(from), { x: p.x, z: p.z }];
+    return [bridgeGate(from), bridgeGate(there), { x: p.x, z: p.z }];
   }
 
   function moveCatTo(x, z) {
     var p = clampTarget(x, z);
-    catTarget = new THREE.Vector3(p.x, 0, p.z);
+    var from = catGroup ? (regionOf(catGroup.position.x, catGroup.position.z) || 'main') : 'main';
+    routePts = waypointsTo(p, from);
+    catTarget = new THREE.Vector3(routePts[0].x, 0, routePts[0].z);
     catMoving = true;
     markerShown = 1;
     markerLife = 1.8;
@@ -8417,14 +8935,14 @@ window.TownScene = (function () {
     });
     canvasEl.addEventListener('wheel', function (e) {
       e.preventDefault();
-      camSph.radius = Math.max(11, Math.min(34, camSph.radius + e.deltaY * 0.012));
+      camSph.radius = Math.max(8, Math.min((camFit || 44) * 1.55, camSph.radius + e.deltaY * 0.02));
       placeCamera();
     }, { passive: false });
     var pinch = null;
     canvasEl.addEventListener('touchmove', function (e) {
       if (e.touches.length === 2) {
         var d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-        if (pinch) { camSph.radius = Math.max(11, Math.min(34, camSph.radius - (d - pinch) * 0.03)); placeCamera(); }
+        if (pinch) { camSph.radius = Math.max(8, Math.min((camFit || 44) * 1.55, camSph.radius - (d - pinch) * 0.045)); placeCamera(); }
         pinch = d;
       }
     }, { passive: true });
@@ -8468,11 +8986,19 @@ window.TownScene = (function () {
     if (catMoving && catTarget) {
       var dx = catTarget.x - catGroup.position.x, dz = catTarget.z - catGroup.position.z;
       var dist = Math.sqrt(dx * dx + dz * dz);
-      if (dist < 0.07) {
-        catMoving = false; catTarget = null;
+      var guard = 0;
+      // 다리 문턱 같은 경유지에 닿으면 다음 경유지로 넘어간다
+      while (dist < 0.09 && routePts.length > 1 && guard++ < 4) {
+        routePts.shift();
+        catTarget.set(routePts[0].x, 0, routePts[0].z);
+        dx = catTarget.x - catGroup.position.x; dz = catTarget.z - catGroup.position.z;
+        dist = Math.sqrt(dx * dx + dz * dz);
+      }
+      if (dist < 0.09) {
+        catMoving = false; catTarget = null; routePts = [];
       } else {
         moving = true;
-        var step = Math.min(dist, 2.5 * dt);
+        var step = Math.min(dist, 2.9 * dt);
         catGroup.position.x += dx / dist * step;
         catGroup.position.z += dz / dist * step;
         var want = Math.atan2(dx / dist, dz / dist);
@@ -8495,7 +9021,7 @@ window.TownScene = (function () {
     var hopY = 0;
     if (jumpT > 0) { jumpT -= dt; hopY = Math.sin(Math.max(0, jumpT) / 0.55 * Math.PI) * 0.55; }
 
-    catGroup.position.y = bob + hopY;
+    catGroup.position.y = groundH(catGroup.position.x, catGroup.position.z) + bob + hopY;
     if (catInner) {
       catInner.rotation.z = waddle;
       catInner.rotation.x = tilt;
@@ -8629,12 +9155,13 @@ window.TownScene = (function () {
       r.scale.set(s, s, 1);
     });
     floatLanterns.forEach(function (l) {
-      l.position.y = (l.userData.baseY || -1.03) + Math.sin(t * 0.9 + l.userData.phase) * 0.035;
-      l.rotation.z = Math.sin(t * 0.7 + l.userData.phase) * 0.08;
+      var ph = l.userData.phase || 0;
+      l.position.y = (l.userData.baseY || -1.03) + Math.sin(t * 0.9 + ph) * 0.035;
+      l.rotation.z = Math.sin(t * 0.7 + ph) * 0.08;
     });
     clouds.forEach(function (c, idx) {
       c.position.x += (0.1 + idx * 0.025) * dt;
-      if (c.position.x > 34) c.position.x = -34;
+      if (c.position.x > 54) c.position.x = -28;
     });
     if (moonGrp) moonGrp.position.y = moonBaseY + Math.sin(t * 0.25) * 0.12;
 
@@ -8669,35 +9196,80 @@ window.TownScene = (function () {
     // real weather: rain / snow particles + overcast tint fade in and out
     updateWeather(dt, t);
 
+    petalDrifts.forEach(function (p) {
+      p.rotation.y += dt * (p.userData.spin || 0.06);
+      p.position.y = Math.sin(t * 0.5) * 0.12;
+    });
+    updateCamFocus(dt);
+    placeCamera();
     updateLabels();
     renderer.render(scene, camera);
   }
 
   var viewNarrow = null;
+  var narrowView = false;
+  var camFit = 44;
+  /* 두 섬 + 다리 + 부두가 화면에 같이 들어오는 카메라 거리 */
+  function fitTown() {
+    if (!camera) return 44;
+    var w = canvasEl.clientWidth || 800, h = canvasEl.clientHeight || 600;
+    var aspect = (w / h) || 1.4;
+    var fov = camera.fov * Math.PI / 180;
+    var minX = -MAIN_R - 1.0, maxX = PARK.x + PARK.r + 1.0;
+    var minZ = -MAIN_R - 1.0, maxZ = MAIN_R + 1.2;
+    var hx = (maxX - minX) / 2, hz = (maxZ - minZ) / 2;
+    var ct = Math.cos(camSph.theta), st = Math.sin(camSph.theta);
+    var halfW = Math.abs(hx * ct) + Math.abs(hz * st) + 1.1;
+    var depth = Math.abs(hx * st) + Math.abs(hz * ct);
+    var elev = Math.max(0.12, Math.PI / 2 - camSph.phi);
+    var halfH = depth * Math.sin(elev) + 2.6;
+    var dV = halfH / Math.tan(fov / 2);
+    var dH = halfW / (Math.tan(fov / 2) * aspect);
+    return Math.max(dV, dH) * (narrowView ? 1.0 : 0.955);
+  }
   function resize() {
     if (!renderer || !camera) return;
     var w = canvasEl.clientWidth || 800, h = canvasEl.clientHeight || 600;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
-    camera.updateProjectionMatrix();
-    // narrow (phone) stage is nearly square: sit much closer than desktop so the
-    // island fills the frame (all four buildings + 용쥬 stay visible; only the
-    // outer water ring is trimmed)
+    // the phone stage is wider than it is tall: a slightly wider lens keeps both
+    // islands (and the bridge between them) in frame
     var narrow = w < 660;
+    narrowView = narrow;
+    camera.fov = narrow ? 48 : 44;
+    camera.updateProjectionMatrix();
     if (narrow !== viewNarrow) {
       viewNarrow = narrow;
-      camSph.radius = narrow ? 19.8 : 20.0;
-      camSph.phi = narrow ? 1.13 : 1.17;
-      if (target) target.y = narrow ? 1.66 : 1.55;
+      camSph.theta = narrow ? -0.1 : 0.03;
+      camSph.phi = narrow ? 1.0 : 1.02;
+      camFit = fitTown();
+      camSph.radius = camFit;
+      if (target) { target.set(TOWN.cx, narrow ? 1.2 : 1.2, TOWN.cz); }
       // the phone stage is narrower: tuck the sun in so it stays in the sky band
       if (sunGrp) {
-        if (narrow) { sunGrp.position.set(2.6, 5.2, -18.5); sunGrp.scale.setScalar(0.8); }
-        else { sunGrp.position.set(11.6, 5.4, -17.0); sunGrp.scale.setScalar(1); }
+        if (narrow) { sunGrp.position.set(16.4, 5.6, -20.5); sunGrp.scale.setScalar(0.85); }
+        else { sunGrp.position.set(23.0, 5.6, -18.0); sunGrp.scale.setScalar(1); }
       }
     }
+    camFit = fitTown();
     placeCamera();
     var pr = Math.min(window.devicePixelRatio || 1, 2);
     for (var i = 0; i < moteMats.length; i++) moteMats[i].uniforms.uScale.value = h * pr * 1.35;
+  }
+
+  /* 가까이 당기면 시선 중심이 용쥬를 따라간다 */
+  var focusFollow = true;
+  function updateCamFocus(dt) {
+    if (!target || !catGroup || !focusFollow) return;
+    var fx = TOWN.cx, fz = TOWN.cz;
+    if (camSph.radius < 30) {
+      var k = Math.min(1, (30 - camSph.radius) / 12);
+      fx = TOWN.cx + (catGroup.position.x - TOWN.cx) * k;
+      fz = TOWN.cz + (catGroup.position.z - TOWN.cz) * k;
+    }
+    var s = Math.min(1, dt * 3.2);
+    target.x += (fx - target.x) * s;
+    target.z += (fz - target.z) * s;
   }
 
   /* ---------- decorations (shop) ---------- */
@@ -8707,27 +9279,27 @@ window.TownScene = (function () {
     owned = owned || [];
     function has(id) { return owned.indexOf(id) > -1; }
     if (has('tree')) {
-      decorGroup.add(makeTree(-7.0, 1.9, 1.02, 'cherry'));
-      decorGroup.add(makeTree(7.2, 3.4, 0.92, 'cherry'));
+      decorGroup.add(makeTree(-9.6, 2.0, 1.02, 'cherry'));
+      decorGroup.add(makeTree(10.2, 3.6, 0.92, 'cherry'));
       var petalGeo = new THREE.BufferGeometry();
       var pp = new Float32Array(140 * 3);
-      for (var i = 0; i < 140; i++) { pp[i * 3] = -7 + (Math.random() - .5) * 5; pp[i * 3 + 1] = Math.random() * 4.5; pp[i * 3 + 2] = 1.9 + (Math.random() - .5) * 5; }
+      for (var i = 0; i < 140; i++) { pp[i * 3] = -9.6 + (Math.random() - .5) * 5; pp[i * 3 + 1] = Math.random() * 4.5; pp[i * 3 + 2] = 2.0 + (Math.random() - .5) * 5; }
       petalGeo.setAttribute('position', new THREE.BufferAttribute(pp, 3));
       var petals = new THREE.Points(petalGeo, new THREE.PointsMaterial({ color: 0xf7b6d0, size: 0.14, transparent: true, opacity: 0.85, depthWrite: false }));
       decorGroup.add(petals);
     }
-    if (has('lamp')) { decorGroup.add(makeStreetLamp(-1.4, 5.4, false, false)); decorGroup.add(makeStreetLamp(1.5, -1.0, false, false)); }
-    if (has('fountain')) { decorGroup.add(makeFountain(0.0, -3.35)); }
+    if (has('lamp')) { decorGroup.add(makeStreetLamp(-8.4, 3.4, false, false)); decorGroup.add(makeStreetLamp(8.6, -1.4, false, false)); }
+    if (has('fountain')) { decorGroup.add(makeFountain(-10.2, -2.4)); }
     if (has('friend')) {
-      var f = makeFriendCat(2.5, 1.0, 0xd8c8f0); f.rotation.y = -0.6; decorGroup.add(f);
-      var f2 = makeFriendCat(-2.5, 2.2, 0xe8d0b8); f2.rotation.y = 1.2; decorGroup.add(f2);
+      var f = makeFriendCat(3.4, 1.2, 0xd8c8f0); f.rotation.y = -0.6; decorGroup.add(f);
+      var f2 = makeFriendCat(-3.2, 2.6, 0xe8d0b8); f2.rotation.y = 1.2; decorGroup.add(f2);
     }
     if (has('garland')) {
       var garland = new THREE.Group();
       var pts = [];
       for (var k = 0; k <= 22; k++) {
         var u = k / 22;
-        pts.push(new THREE.Vector3(-8 + u * 16, 7.0 + Math.sin(u * Math.PI) * 0.9, -2.2));
+        pts.push(new THREE.Vector3(-11 + u * 22, 8.0 + Math.sin(u * Math.PI) * 1.1, -3.4));
       }
       for (var k2 = 0; k2 < pts.length; k2++) {
         garland.add(sph(0.1, mat(0xffe9c4, { em: 0xffc06a, ei: 1.6 }), pts[k2].x, pts[k2].y, pts[k2].z, 8));
@@ -8740,8 +9312,8 @@ window.TownScene = (function () {
       decorGroup.add(garland);
     }
     if (moonGrp) moonGrp.scale.setScalar(has('moonlamp') ? 1.4 : 1);
-    if (has('mailflower')) { decorGroup.add(makeBush(-1.4, -3.9, 0.9)); decorGroup.add(makeBush(2.4, -3.6, 0.85)); decorGroup.add(makeFlowerBed(-0.1, 4.6)); }
-    if (has('bench')) { decorGroup.add(makeBench(3.0, 5.2, -0.7)); }
+    if (has('mailflower')) { decorGroup.add(makeBush(-3.6, -6.6, 0.9)); decorGroup.add(makeBush(2.6, -6.2, 0.85)); decorGroup.add(makeFlowerBed(1.4, 8.6)); }
+    if (has('bench')) { decorGroup.add(makeBench(4.9, 6.8, -0.7)); }
   }
 
   /* ---------- wearables (shop) ---------- */
@@ -8906,6 +9478,10 @@ window.TownScene = (function () {
         cat: catGroup ? { x: catGroup.position.x, z: catGroup.position.z, y: catGroup.position.y, rot: catGroup.rotation.y } : null,
         target: catTarget ? { x: catTarget.x, z: catTarget.z } : null,
         moving: catMoving,
+        cam: camera ? { theta: camSph.theta, phi: camSph.phi, radius: camSph.radius, fov: camera.fov, fit: camFit, target: target ? [target.x, target.y, target.z] : null } : null,
+        route: routePts.length,
+        routePts: routePts.map(function (r) { return [+r.x.toFixed(2), +r.z.toFixed(2)]; }),
+        region: catGroup ? regionOf(catGroup.position.x, catGroup.position.z) : null,
         calls: renderer && renderer.info ? renderer.info.render.calls : 0,
         tris: renderer && renderer.info ? renderer.info.render.triangles : 0,
         obstacles: obstacles.length
@@ -8918,6 +9494,18 @@ window.TownScene = (function () {
       return { x: r.left + (v.x * 0.5 + 0.5) * r.width, y: r.top + (-v.y * 0.5 + 0.5) * r.height };
     },
     moveTo: function (x, z) { if (ready) moveCatTo(x, z); },
+    focusFollow: function (on) { focusFollow = !!on; },
+    teleport: function (x, z) {
+      if (!catGroup) return null;
+      var p = clampTarget(x, z);
+      catGroup.position.set(p.x, groundH(p.x, p.z), p.z);
+      catMoving = false; catTarget = null; routePts = [];
+      if (markerGrp) markerGrp.visible = false;
+      return { x: p.x, z: p.z, y: catGroup.position.y };
+    },
+    _scene: function () { return scene; },
+    _camera: function () { return camera; },
+    _grounds: function () { return groundPicks; },
     setTarget: function (x, y, z) { if (target) { target.set(x, y, z); placeCamera(); } },
     setCam: function (theta, phi, radius, ty) {
       if (theta !== undefined && theta !== null) camSph.theta = theta;
