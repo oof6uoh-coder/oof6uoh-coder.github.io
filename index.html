@@ -661,6 +661,36 @@ input,textarea,select{font-family:inherit;color:inherit}
 .rep-streak b{font-size:15px;font-weight:800;color:#ffe6bf}
 .rep-streak span{font-size:10.5px;font-weight:700;color:var(--muted)}
 .rep-streak .best{margin-left:auto;font-size:10px;font-weight:800;color:var(--gold)}
+/* 하루 공부 시간 */
+.rep-study{display:grid;grid-template-columns:1.35fr 1fr;gap:9px;margin-bottom:14px}
+.rep-study-main{padding:13px 15px;border-radius:16px;background:linear-gradient(135deg,rgba(201,166,240,.18),rgba(238,157,196,.12));
+  border:1px solid rgba(238,157,196,.3);min-width:0}
+.rep-study-main .lb{display:block;font-size:10px;font-weight:800;color:var(--muted);letter-spacing:.02em}
+.rep-study-main b{display:block;font-size:25px;line-height:1.15;font-weight:800;letter-spacing:-.03em;color:#ffe6bf;
+  margin-top:2px;font-variant-numeric:tabular-nums;word-break:keep-all}
+.rep-study-main b small{font-size:11.5px;font-weight:800;color:var(--muted);margin-left:6px;letter-spacing:0}
+.rep-study-main .sub{display:block;font-size:10px;font-weight:700;color:var(--muted-2);margin-top:6px;line-height:1.5;word-break:keep-all}
+.rep-study-side{display:grid;grid-template-rows:1fr 1fr;gap:8px;min-width:0}
+.rep-mini{padding:9px 12px;border-radius:13px;background:rgba(255,255,255,.045);border:1px solid var(--stroke);
+  display:flex;flex-direction:column;justify-content:center;min-width:0}
+.rep-mini span{font-size:9.5px;font-weight:800;color:var(--muted-2)}
+.rep-mini b{font-size:15px;font-weight:800;color:#fff;margin-top:1px;font-variant-numeric:tabular-nums;word-break:keep-all}
+.rep-mini b small{font-size:9.5px;font-weight:700;color:var(--muted-2);margin-left:3px}
+.rep-days{display:grid;gap:6px;margin-bottom:16px}
+.rep-day{display:grid;grid-template-columns:86px 1fr auto;align-items:center;gap:10px;padding:7px 11px;border-radius:12px;
+  background:rgba(255,255,255,.035);border:1px solid var(--stroke)}
+.rep-day.today{background:linear-gradient(90deg,rgba(255,217,163,.13),rgba(238,157,196,.08));border-color:rgba(255,217,163,.34)}
+.rep-day.zero{opacity:.62}
+.rep-day .dt{font-size:10px;font-weight:800;color:var(--muted);white-space:nowrap}
+.rep-day.today .dt{color:#ffe6bf}
+.rep-day .dt i{font-style:normal;display:inline-block;margin-left:4px;padding:1px 5px;border-radius:6px;
+  background:rgba(255,217,163,.2);color:#ffe6bf;font-size:8.5px;vertical-align:1px}
+.rep-day .track{height:7px;border-radius:4px;background:rgba(255,255,255,.07);overflow:hidden;min-width:0}
+.rep-day .track i{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,#c9a6f0,#ee9dc4)}
+.rep-day.today .track i{background:linear-gradient(90deg,#ffe0ac,#ee9dc4);box-shadow:0 0 9px rgba(255,217,163,.5)}
+.rep-day .tm{font-size:11px;font-weight:800;color:#fff;white-space:nowrap;font-variant-numeric:tabular-nums;text-align:right}
+.rep-day .tm small{display:block;font-size:8.5px;font-weight:700;color:var(--muted-2);margin-top:1px}
+.rep-day.zero .tm{color:var(--muted-2)}
 .bars{display:grid;grid-template-columns:repeat(7,1fr);gap:7px;align-items:end;height:150px;padding:6px 2px 0}
 .bar-col{display:flex;flex-direction:column;align-items:center;gap:3px;height:100%;justify-content:flex-end}
 .bar-area{flex:1;width:100%;display:flex;align-items:flex-end;justify-content:center;min-height:0;
@@ -890,6 +920,12 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
   .shop-btn .em{font-size:14px}
   .shop-btn b{font-size:11px}
   .rep-hero{grid-template-columns:repeat(2,1fr);gap:7px}
+  .rep-study{grid-template-columns:1fr;gap:8px}
+  .rep-study-main b{font-size:23px}
+  .rep-study-side{grid-template-rows:none;grid-template-columns:1fr 1fr;gap:8px}
+  .rep-day{grid-template-columns:78px 1fr auto;gap:8px;padding:7px 9px}
+  .rep-day .tm{font-size:10.5px}
+  .rep-day .track{height:6px}
   .badge-grid{grid-template-columns:repeat(2,1fr);gap:7px}
   .amb-seg{min-width:0}
   .amb-row .amb-vol{width:100%}
@@ -1606,11 +1642,14 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
         <div><b id="repStreak">0일</b><span> 연속 출석 중</span></div>
         <span class="best" id="repBest">최장 0일</span>
       </div>
+      <div class="rep-study" id="repStudy"></div>
+      <div class="sec-title">🗓 하루별 공부 시간 <span class="n" id="repWeekSum"></span></div>
+      <div class="rep-days" id="repDays"></div>
       <div class="rep-hero" id="repHero"></div>
       <div class="rep-today" id="repToday"></div>
       <div class="sec-title">📅 최근 7일 활동</div>
       <div class="bars" id="repBars"></div>
-      <div class="bar-legend"><span><i style="background:linear-gradient(180deg,#c9a6f0,#ee9dc4)"></i>집중 시간(분)</span><span>막대 아래 숫자 = 완료한 퀘스트</span></div>
+      <div class="bar-legend"><span><i style="background:linear-gradient(180deg,#c9a6f0,#ee9dc4)"></i>막대 높이 = 집중 시간</span><span>막대 아래 숫자 = 그날 집중한 분</span></div>
       <div class="divider"></div>
       <div class="sec-title">🏅 뱃지 컬렉션 <span class="n" id="badgeCount">0/6</span></div>
       <div class="badge-grid" id="badgeGrid"></div>
@@ -2470,6 +2509,19 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     save();
   }
 
+  /* 창을 켜둔 채 날짜가 바뀌었는지 확인 — 바뀌었으면 오늘 기록을 새 날로 넘긴다.
+     (이게 없으면 자정을 넘겨 공부한 시간이 어제 날짜에 붙었어요) */
+  function rollToday() {
+    var t = D.dayKey();
+    if (t === TODAY) return false;
+    TODAY = t;
+    dailyRollover();
+    paintHud(); paintFocusStats(); paintPomo();
+    renderSideQuests(); renderQuestModal();
+    if ($('#mReport') && $('#mReport').style.display !== 'none') renderReport();
+    return true;
+  }
+
   /* ============================================================
      AUDIO (Web Audio API — no files)
      ============================================================ */
@@ -2817,6 +2869,7 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
   });
 
   function paintClock() {
+    rollToday();
     var d = new Date(), h = d.getHours();
     var g = h < 6 ? '🌙 새벽' : h < 12 ? '☀️ 아침' : h < 18 ? '🌤 오후' : '🌙 밤';
     $('#clockChip').textContent = g + ' ' + D.pad(h) + ':' + D.pad(d.getMinutes());
@@ -3251,6 +3304,7 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     paintPomo();
   }
   function tickPomo() {
+    if (D.dayKey() !== TODAY) rollToday();
     var left = Math.max(0, Math.round((P.endAt - Date.now()) / 1000));
     if (left === P.remain) return;
     P.remain = left;
@@ -3259,6 +3313,7 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
   }
 
   function finishPomo() {
+    if (D.dayKey() !== TODAY) rollToday();
     P.running = false; clearInterval(P.iv); P.iv = null;
     P.remain = 0;
     paintPomo();
@@ -4138,14 +4193,34 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
      GROWTH REPORT
      ============================================================ */
   function reportWeek() {
-    var days = [];
+    var days = [], log = S.sessionLog || {};
     for (var i = 6; i >= 0; i--) {
       var k = D.dayShift(TODAY, -i);
       var dt = new Date(k.replace(/-/g, '/'));
-      days.push({ key: k, d: dayStat(k), label: D.WD[dt.getDay()], pretty: D.prettyDate(k) });
+      var st = dayStat(k);
+      var sess = log[k] || 0;
+      if (k === TODAY) {
+        // 오늘은 뽀모도로 카운터도 같이 본다 (불러온 기록·동기화에서 둘이 어긋날 때가 있음)
+        st.focus = Math.max(st.focus, S.focusMinToday || 0);
+        sess = Math.max(sess, S.sessionsToday || 0);
+      }
+      days.push({
+        key: k, d: st, sess: sess,
+        label: D.WD[dt.getDay()], pretty: D.prettyDate(k),
+        title: (dt.getMonth() + 1) + '/' + dt.getDate() + ' (' + D.WD[dt.getDay()] + ')'
+      });
     }
     return days;
   }
+  /* '1시간 40분' · '45분' · '2시간' · '0분' */
+  function fmtStudy(mins) {
+    mins = Math.max(0, Math.round(mins || 0));
+    if (!mins) return '0분';
+    var h = Math.floor(mins / 60), r = mins % 60;
+    if (!h) return r + '분';
+    return h + '시간' + (r ? ' ' + r + '분' : '');
+  }
+  function fmtSess(n) { return (n || 0) + '세션'; }
   function repCell(v, unit, label, hint) {
     return '<div class="rep-cell"' + (hint ? ' title="' + esc(hint) + '"' : '') + '><b>' + v +
       (unit ? '<small>' + unit + '</small>' : '') + '</b><span>' + label + '</span></div>';
@@ -4153,25 +4228,74 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
   function renderReport() {
     checkBadges(true);
     var days = reportWeek(), week = { focus: 0, quests: 0, todos: 0 };
-    var log = S.sessionLog || {}, sessWeek = 0;
+    var sessWeek = 0, studyDays = 0;
     days.forEach(function (x) {
       week.focus += x.d.focus; week.quests += x.d.quests; week.todos += x.d.todos;
-      sessWeek += log[x.key] || 0;
+      sessWeek += x.sess;
+      if (x.d.focus > 0) studyDays++;
     });
     var snap = studySnapshot();
     var wrongLeft = (S.wrongNotes || []).filter(function (w) { return !w.del; }).length;
     var curTp = topics().filter(function (t) { return t.id === labTopic; })[0];
     var stepNo = curTp && curTp.step ? curTp.step : 1;
     var td = dayStat(TODAY);
+    var tod = days[days.length - 1], yest = days[days.length - 2];
+    var todayMin = tod.d.focus;
     $('#repStreak').textContent = (S.streak || 0) + '일';
     $('#repBest').textContent = '최장 ' + Math.max(S.streakBest || 0, S.streak || 0) + '일';
+
+    /* ---- 오늘 공부 시간 : 크게 ---- */
+    var sub;
+    if (todayMin > 0) {
+      if (yest.d.focus > 0) {
+        var diff = todayMin - yest.d.focus;
+        sub = diff > 0 ? '어제(' + fmtStudy(yest.d.focus) + ')보다 ' + fmtStudy(diff) + ' 더 했어요 🔥'
+          : diff < 0 ? '어제(' + fmtStudy(yest.d.focus) + ')보다 ' + fmtStudy(-diff) + ' 덜 했어요'
+            : '어제랑 똑같이 ' + fmtStudy(todayMin) + ' 했어요';
+      } else {
+        sub = '어제는 공부 기록이 없었어요';
+      }
+    } else {
+      sub = '아직 오늘 기록이 없어요 · 뽀모도로 한 세트부터 시작해볼까요?';
+    }
+    if (P.running && !P.isBreak) {
+      sub += ' · 지금 ' + Math.max(1, Math.round((P.total - P.remain) / 60)) + '분째 집중 중';
+    }
+    if ($('#repStudy')) $('#repStudy').innerHTML =
+      '<div class="rep-study-main">' +
+      '<span class="lb">오늘 공부 시간 · ' + tod.title + '</span>' +
+      '<b>' + fmtStudy(todayMin) + (tod.sess ? '<small>' + fmtSess(tod.sess) + '</small>' : '') + '</b>' +
+      '<span class="sub">' + esc(sub) + '</span>' +
+      '</div>' +
+      '<div class="rep-study-side">' +
+      '<div class="rep-mini"><span>공부한 날</span><b>' + studyDays + '일<small> / 7일</small></b></div>' +
+      '<div class="rep-mini"><span>하루 평균</span><b>' + fmtStudy(studyDays ? week.focus / studyDays : 0) + '</b></div>' +
+      '</div>';
+    if ($('#repWeekSum')) $('#repWeekSum').textContent = '이번 주 ' + fmtStudy(week.focus);
+
+    /* ---- 하루별 공부 시간 (오늘부터 거꾸로) ---- */
+    var maxDay = 1;
+    days.forEach(function (x) { if (x.d.focus > maxDay) maxDay = x.d.focus; });
+    if ($('#repDays')) $('#repDays').innerHTML = days.slice().reverse().map(function (x) {
+      var w = x.d.focus ? Math.max(7, Math.round(x.d.focus / maxDay * 100)) : 0;
+      var isToday = x.key === TODAY;
+      var note = x.sess ? fmtSess(x.sess) : (x.d.focus ? '세션 기록 없음' : '공부 안 함');
+      var tip = x.pretty + ' · 공부 ' + fmtStudy(x.d.focus) + ' (' + fmtSess(x.sess) + ')' +
+        ' · 퀘스트 ' + x.d.quests + '개 · 투두 ' + x.d.todos + '개';
+      return '<div class="rep-day' + (isToday ? ' today' : '') + (x.d.focus ? '' : ' zero') + '" title="' + esc(tip) + '">' +
+        '<span class="dt">' + x.title + (isToday ? '<i>오늘</i>' : '') + '</span>' +
+        '<div class="track"><i style="width:' + w + '%"></i></div>' +
+        '<span class="tm">' + fmtStudy(x.d.focus) + '<small>' + note + '</small></span>' +
+        '</div>';
+    }).join('');
+
     if ($('#repToday')) $('#repToday').innerHTML =
-      '<span>오늘</span><b>' + won(td.focus) + '분 집중</b><span class="sep">·</span>' +
-      '<b>' + (S.sessionsToday || 0) + '세트</b><span class="sep">·</span>' +
-      '<b>퀘스트 ' + td.quests + '개</b><span class="sep">·</span><b>투두 ' + td.todos + '개</b>';
+      '<span>오늘</span><b>퀘스트 ' + td.quests + '개</b><span class="sep">·</span>' +
+      '<b>투두 ' + td.todos + '개</b><span class="sep">·</span>' +
+      '<b>' + fmtSess(tod.sess) + ' 집중</b>';
     $('#repHero').innerHTML =
-      repCell(won(week.focus), '분', '이번 주 집중', '오늘 ' + won(S.focusMinToday || 0) + '분') +
-      repCell(won(sessWeek), '회', '이번 주 뽀모도로', '오늘 ' + (S.sessionsToday || 0) + '회') +
+      repCell(fmtStudy(week.focus), '', '이번 주 총 공부', '하루 평균 ' + fmtStudy(studyDays ? week.focus / studyDays : 0) + ' · 공부한 날 ' + studyDays + '일') +
+      repCell(won(sessWeek), '회', '이번 주 뽀모도로', '오늘 ' + (tod.sess || 0) + '회') +
       repCell(won(week.quests), '개', '이번 주 퀘스트', '이번 주 완료한 퀘스트') +
       repCell(won(week.todos), '개', '이번 주 투두', '이번 주 완료한 투두') +
       repCell(snap.doneN + '/' + snap.list.length, '', '전공 진행 · STEP ' + stepNo, '네트워크 기초 ' + snap.doneN + '단계 완료') +
@@ -4182,9 +4306,9 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     days.forEach(function (x) { if (x.d.focus > maxF) maxF = x.d.focus; });
     $('#repBars').innerHTML = days.map(function (x) {
       var h = x.d.focus ? Math.max(6, Math.round(x.d.focus / maxF * 100)) : 0;
-      var tip = x.pretty + ' · 집중 ' + x.d.focus + '분 · 퀘스트 ' + x.d.quests + '개 · 투두 ' + x.d.todos + '개';
+      var tip = x.pretty + ' · 집중 ' + fmtStudy(x.d.focus) + ' (' + fmtSess(x.sess) + ') · 퀘스트 ' + x.d.quests + '개 · 투두 ' + x.d.todos + '개';
       return '<div class="bar-col' + (x.key === TODAY ? ' today' : '') + '" title="' + esc(tip) + '">' +
-        '<div class="bar-area"><i style="height:' + h + '%"></i></div>' +
+        '<div class="bar-area"><i style="height:' + h + '%' + (h ? '' : ';min-height:0') + '"></i></div>' +
         '<em>' + x.label + '</em><b>' + (x.d.focus ? x.d.focus : '·') + '</b></div>';
     }).join('');
     var on = Object.keys(S.badges || {}).filter(function (k) { return badgeDef(k) && S.badges[k]; }).length;
@@ -5379,7 +5503,7 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     setInterval(function () { paintWeatherChip(); }, 60 * 1000);
     window.addEventListener('online', function () { if (!WX.ts || (Date.now() - WX.ts) > 2 * 60 * 1000) fetchWeather(true); });
     document.addEventListener('visibilitychange', function () {
-      if (document.visibilityState === 'visible') fetchWeather(false);
+      if (document.visibilityState === 'visible') { rollToday(); fetchWeather(false); }
     });
     renderSideQuests();
     renderSideTodo();
@@ -5429,6 +5553,9 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
       }
     },
     getState: function () { return S; },
+    renderReport: renderReport,
+    rollToday: rollToday,
+    studyText: function (m) { return fmtStudy(m); },
     sync: {
       now: function () { return syncNow(false); },
       pull: function () { return syncPull(false); },
