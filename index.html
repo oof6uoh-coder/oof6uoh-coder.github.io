@@ -813,6 +813,20 @@ input,textarea,select{font-family:inherit;color:inherit}
 .sync-btn.on{color:#d9f5ea}
 .sync-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:2px}
 .sync-actions .btn{flex:1;min-width:132px;justify-content:center}
+/* 🕰️ Gist 이전 버전에서 복구 */
+.sync-hist{margin-top:10px;border:1px solid rgba(188,170,232,.28);border-radius:13px;padding:7px 9px 8px;background:rgba(10,7,18,.34)}
+.sh-hd{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 2px 7px}
+.sh-hd b{font-size:11px;font-weight:800;color:#e8defc}
+.sh-hd small{font-size:9.5px;color:var(--muted-2);font-weight:700;text-align:right}
+.sh-row{display:flex;align-items:center;gap:8px;padding:7px 2px;border-top:1px dashed var(--stroke)}
+.sh-when{flex:0 0 66px;font-size:10.5px;font-weight:800;color:#dcd2f6;line-height:1.3}
+.sh-when small{display:block;font-size:9.5px;color:var(--muted-2);font-weight:700}
+.sh-prev{flex:1;min-width:0;font-size:10.5px;font-weight:700;color:#fff;line-height:1.5;word-break:break-word}
+.sh-prev em{font-style:normal;color:var(--muted-2);font-weight:700}
+.sh-prev .sh-warn{color:#f0b48a}
+.sh-row .btn{flex:0 0 auto;padding:6px 9px;font-size:10px;min-width:0}
+.sh-empty{padding:9px 2px;font-size:10.5px;color:var(--muted-2);font-weight:700;line-height:1.7}
+.sh-foot{margin-top:7px;padding:6px 2px 0;border-top:1px dashed var(--stroke);font-size:9.5px;color:var(--muted-2);font-weight:700;line-height:1.6}
 .deploy-box{margin-top:14px;border:1px solid var(--stroke);border-radius:13px;padding:11px 13px;background:rgba(255,255,255,.03)}
 .deploy-box summary{cursor:pointer;font-size:11px;font-weight:800;color:#e8defc}
 .deploy-box ol{margin:9px 0 6px;padding-left:18px;font-size:10.5px;line-height:1.8;color:#cfc4ea;font-weight:600}
@@ -1727,9 +1741,11 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
         <button class="btn sm primary" id="btnSyncConnect">🔗 연결하고 동기화</button>
         <button class="btn sm" id="btnSyncNow">☁️ 지금 동기화</button>
         <button class="btn sm ghost" id="btnSyncPull">⬇️ 다른 기기 기록 불러오기</button>
+        <button class="btn sm ghost" id="btnSyncHistory">🕰️ 이전 버전에서 복구</button>
         <button class="btn sm danger" id="btnSyncOff">연결 해제</button>
         <button class="btn sm ghost" id="btnSyncPassOff" style="display:none">🔓 암호화 끄기</button>
       </div>
+      <div class="sync-hist" id="syncHistoryList" style="display:none"></div>
       <div class="switch" style="margin-top:8px">
         <div><b>자동 동기화</b><span>기록이 바뀌면 1.5초 뒤에 조용히 저장해요</span></div>
         <div class="tg on" id="setSyncAuto"><i></i></div>
@@ -4464,6 +4480,167 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
   }
   function readGistById(id) { return gh('GET', '/gists/' + id).then(parseGist); }
 
+  /* ---------- 🕰️ Gist 이전 버전에서 복구 ----------
+     GitHub Gist 는 PATCH 할 때마다 이전 내용을 '리비전'으로 남긴다.
+     /gists/{id}/commits 로 목록을 받고, /gists/{id}/{sha} 로 그 시점 파일을 받아
+     같은 비밀번호로 복호화한 뒤 사람이 읽을 수 있는 요약(Lv. · 퀘스트 · 공부 · 스킨)만 보여준다. */
+  var HIST_MAX = 15, HIST_AUTO = 8;
+  var histCommits = [], histCache = {}, histShown = false, histSeq = 0, histRestoring = false;
+
+  function histWhen(iso) {
+    var d = new Date(iso || '');
+    if (!iso || isNaN(d.getTime())) return { day: '—', time: '' };
+    return { day: (d.getMonth() + 1) + '/' + d.getDate(), time: D.pad(d.getHours()) + ':' + D.pad(d.getMinutes()) };
+  }
+  function histSummary(p) {
+    var d = (p && p.data) || null;
+    if (!d) return '기록이 비어 있어요';
+    var bits = ['Lv.' + (d.level || 1)];
+    var qs = (d.quests || []).filter(function (q) { return q && q.title; });
+    if (qs.length) {
+      var done = qs.filter(function (q) { return q.done; }).length;
+      bits.push('퀘스트 ' + qs.length + '개' + (done ? ' · ' + done + '개 완료' : ''));
+    }
+    var focus = d.totalFocusMin || 0;
+    if (focus) bits.push('공부 ' + fmtStudy(focus));
+    var sk = skinItem((d.shop && d.shop.skin) || '');
+    if (sk && sk.id !== 'white') bits.push(sk.emoji + ' ' + sk.name);
+    return bits.join(' · ');
+  }
+  function histCommitAt(sha) {
+    var c = histCommits.filter(function (x) { return x.version === sha; })[0];
+    return c ? c.committed_at : '';
+  }
+  function histRowHtml(c) {
+    var sha = c.version, w = histWhen(c.committed_at), rec = histCache[sha];
+    var prev, act = '';
+    if (!rec) {
+      prev = '<button class="btn sm ghost" data-hist-load="' + esc(sha) + '">👀 미리보기</button>';
+    } else if (rec.state === 'loading') {
+      prev = '<em>불러오는 중…</em>';
+    } else if (rec.state === 'err') {
+      prev = '<span class="sh-warn">' + esc(rec.err || '불러오지 못했어요') + '</span>';
+    } else {
+      var txt = histSummary(rec.payload);
+      prev = esc(txt) + (histSummaryIsEmpty(rec.payload) ? ' <em>· 아직 아무것도 못 한 시점</em>' : '');
+      act = '<button class="btn sm primary" data-hist-restore="' + esc(sha) + '">이 버전으로 복구</button>';
+    }
+    return '<div class="sh-row" data-hist-row="' + esc(sha) + '">' +
+      '<div class="sh-when">' + esc(w.day) + '<small>' + esc(w.time) + '</small></div>' +
+      '<div class="sh-prev">' + prev + '</div>' + act + '</div>';
+  }
+  function histSummaryIsEmpty(p) {
+    var d = (p && p.data) || {};
+    var qs = (d.quests || []).filter(function (q) { return q && q.done; });
+    return (d.level || 1) <= 1 && !(d.exp || 0) && !(d.totalQuests || 0) && !(d.totalFocusMin || 0) && !qs.length;
+  }
+  function paintHist() {
+    var box = $('#syncHistoryList');
+    if (!box) return;
+    if (!histCommits.length) {
+      box.innerHTML = '<div class="sh-empty">저장된 버전이 아직 없어요.</div>';
+      return;
+    }
+    var html = '<div class="sh-hd"><b>🕰️ 이전 버전 ' + histCommits.length + '개</b><small>마지막으로 저장된 순서예요</small></div>';
+    html += histCommits.map(histRowHtml).join('');
+    if (histCommits.some(function (c) { return !histCache[c.version]; })) {
+      html += '<div class="sh-foot">미리보기가 없는 버전은 <b>👀 미리보기</b>를 눌러 확인할 수 있어요.</div>';
+    }
+    html += '<div class="sh-foot">복구하면 지금 기록이 그 시점 내용으로 바뀌고, 서버(Gist)에도 바로 저장돼요. 레벨·퀘스트·공부 기록·스킨이 함께 돌아가요.</div>';
+    box.innerHTML = html;
+  }
+  function loadHistRevision(sha) {
+    if (!sha) return Promise.resolve(null);
+    if (histCache[sha] && histCache[sha].state !== 'err') return Promise.resolve(histCache[sha]);
+    if (!SY.token || !SY.gistId) return Promise.resolve(null);
+    histCache[sha] = { state: 'loading' };
+    paintHist();
+    return gh('GET', '/gists/' + SY.gistId + '/' + sha).then(parseGist).then(function (p) {
+      if (!p || !p.data) { histCache[sha] = { state: 'err', err: '이 시점에는 기록 파일이 없어요' }; return histCache[sha]; }
+      histCache[sha] = { state: 'ok', payload: p };
+      return histCache[sha];
+    }).catch(function (e) {
+      histCache[sha] = { state: 'err', err: e && e.message ? e.message : '불러오지 못했어요' };
+      return histCache[sha];
+    }).then(function (r) { paintHist(); return r; });
+  }
+  function closeHist() {
+    histShown = false;
+    var box = $('#syncHistoryList');
+    if (box) { box.style.display = 'none'; box.innerHTML = ''; }
+  }
+  function openHist() {
+    var box = $('#syncHistoryList');
+    if (!box) return Promise.resolve(false);
+    if (histShown) { closeHist(); return Promise.resolve(true); }
+    if (!SY.token) {
+      toast('먼저 위에 GitHub 토큰을 넣고 연결해 주세요', '', 3000);
+      var tk = $('#syncToken'); if (tk) tk.focus();
+      return Promise.resolve(false);
+    }
+    histShown = true; histCommits = []; histCache = {};
+    box.style.display = '';
+    box.innerHTML = '<div class="sh-empty">불러오는 중…</div>';
+    var seq = ++histSeq;
+    // 기록용 Gist 가 아직 없으면 찾기만 한다 (여기서 새로 만들지는 않아요)
+    var idP = SY.gistId ? Promise.resolve(SY.gistId) : findGist().then(function (id) {
+      if (id) { SY.gistId = id; saveSync(); }
+      return id;
+    }).catch(function () { return null; });
+    return idP.then(function (id) {
+      if (seq !== histSeq) return false;
+      if (!id) { box.innerHTML = '<div class="sh-empty">아직 Gist 에 저장된 기록이 없어요. 위에 <b>🔗 연결하고 동기화</b>를 먼저 눌러 주세요.</div>'; return false; }
+      return gh('GET', '/gists/' + id + '/commits?per_page=' + HIST_MAX).then(function (list) {
+        if (seq !== histSeq) return false;
+        histCommits = (list || []).filter(function (c) { return c && c.version; });
+        histCache = {};
+        paintHist();
+        histCommits.slice(0, HIST_AUTO).forEach(function (c) { loadHistRevision(c.version); });
+        return true;
+      });
+    }).catch(function (e) {
+      if (seq !== histSeq) return false;
+      var msg = e && e.message ? e.message : '불러오지 못했어요';
+      box.innerHTML = '<div class="sh-empty">⚠️ 이전 버전을 불러오지 못했어요 — ' + esc(msg) + '</div>';
+      return false;
+    });
+  }
+  /* 선택한 시점으로 되돌리고, 그 상태를 Gist 에도 바로 저장한다 */
+  function restoreHistRevision(sha) {
+    var rec = histCache[sha];
+    if (histRestoring) return Promise.resolve(false);
+    if (!rec || rec.state !== 'ok' || !rec.payload || !rec.payload.data) {
+      toast('이 버전은 복구할 수 없어요 — 👀 미리보기를 먼저 확인해 주세요', '', 2800);
+      return Promise.resolve(false);
+    }
+    var w = histWhen(histCommitAt(sha));
+    var when = w.day + ' ' + w.time;
+    var sum = histSummary(rec.payload);
+    if (!confirm('이 시점(' + when + ' · ' + sum + ')으로 되돌리고 서버에도 바로 저장할까요?\n\n지금 기기의 기록이 이 내용으로 바뀌어요.')) return Promise.resolve(false);
+    histRestoring = true;
+    applyingRemote = true;
+    var changed = mergePayload(rec.payload, true);
+    applyingRemote = false;
+    save();
+    if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
+    refreshAll();
+    closeHist();
+    paintSyncUI();
+    toast('🕰️ 이전 버전으로 복구했어요!', 'good', 2600);
+    setSyncState('syncing');
+    // 복구한 상태를 Gist 에 그대로 올린다 (다른 동기화 기록과 섞이지 않게 바로 push)
+    var pushP = ensureGist().then(function (id) { return pushGist(id); }).then(function () {
+      SY.lastSync = Date.now(); saveSync(); dirty = false; setSyncState('ok'); paintSyncUI(); return true;
+    }).catch(function (e) {
+      dirty = true;
+      setSyncState('error', e && e.message ? e.message : '서버 저장 실패');
+      toast('복구는 됐지만 서버 저장에 실패했어요 — ☁️ 지금 동기화를 눌러 주세요', '', 4200);
+      paintSyncUI();
+      return false;
+    });
+    return pushP.then(function (r) { histRestoring = false; return r; });
+  }
+
   /* 다른 기기 기록을 받아올 때도 끝나지 않은 퀘스트는 사라지지 않게 합친다 */
   function adoptQuests(list, date) {
     var day = date || TODAY;
@@ -4936,6 +5113,7 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     $('#modalBg').classList.remove('open');
     $$('.rail-btn').forEach(function (b) { b.classList.toggle('active', b.dataset.open === 'town'); });
     stopIvTimer();
+    if (histShown) closeHist();   // 🕰️ 이전 버전 목록은 설정을 닫으면 초기화
   }
 
   /* ============================================================
@@ -5301,6 +5479,16 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     });
     $('#btnSyncNow').addEventListener('click', function () { syncNow(false).then(function () { paintSyncUI(); }); });
     $('#btnSyncPull').addEventListener('click', function () { syncPull(false).then(function () { paintSyncUI(); }); });
+    $('#btnSyncHistory').addEventListener('click', function () { Audio.click(); openHist(); });
+    $('#syncHistoryList').addEventListener('click', function (e) {
+      if (!e.target.closest) return;
+      var t = e.target.closest('[data-hist-load],[data-hist-restore]');
+      if (!t) return;
+      Audio.click();
+      if (t.getAttribute('data-hist-load')) { loadHistRevision(t.getAttribute('data-hist-load')); return; }
+      var sha = t.getAttribute('data-hist-restore');
+      if (sha) restoreHistRevision(sha);
+    });
     $('#btnSyncOff').addEventListener('click', function () {
       if (!confirm('이 기기의 동기화 설정만 지울까요?\n(Gist에 저장된 기록은 그대로 남아 있어요)')) return;
       if (syncPollTimer) { clearInterval(syncPollTimer); syncPollTimer = null; }
@@ -5595,6 +5783,21 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
       setToken: function (t) { SY.token = t; saveSync(); },
       setGist: function (id) { SY.gistId = id; saveSync(); },
       clearKeyCache: function () { keyCache = { salt: '', pass: '', key: null }; },
+      history: {
+        open: openHist, close: closeHist, load: loadHistRevision, restore: restoreHistRevision,
+        state: function () {
+          return {
+            shown: histShown, restoring: histRestoring,
+            commits: histCommits.map(function (c) { return { sha: c.version, at: c.committed_at }; }),
+            rows: histCommits.map(function (c) {
+              var r = histCache[c.version] || {};
+              return { sha: c.version, state: r.state || 'none', text: r.state === 'ok' ? histSummary(r.payload) : (r.err || '') };
+            }),
+            panelVisible: !!($('#syncHistoryList') && $('#syncHistoryList').style.display !== 'none'),
+            panelText: $('#syncHistoryList') ? $('#syncHistoryList').innerText : ''
+          };
+        }
+      },
       info: function () {
         return { hasToken: !!SY.token, gistId: SY.gistId, hasPass: !!SY.pass, lastSync: SY.lastSync,
           pushedAt: SY.pushedAt, state: syncState, msg: syncMsg, dirty: dirty, auto: SY.auto, poll: SY.poll,
