@@ -4503,11 +4503,21 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
   }
 
   /* ---------- merge: 기록은 합치고, 진행 수치는 마지막에 저장한 쪽을 따라요 ---------- */
-  function mergePayload(remote) {
+  function mergePayload(remote, forceRemote) {
     if (!remote || !remote.data) return false;
     var d = remote.data, changed = false;
     var rT = remote.updatedAt || 0, lT = S.updatedAt || 0;
-    var pick = rT > lT;
+    // 아직 아무것도 못 한 기록(Lv.1 · 경험치 0 · 완료 0)이 상대의 진행된 기록을 막거나 덮어쓰지 않게 한다.
+    // (새 기기에서 저장이 한 번만 일어나도 updatedAt이 최신이 되어, 진행된 다른 기기 기록을 영영 못 받아오던 문제)
+    var localFresh = (S.level || 1) <= 1 && (S.exp || 0) === 0 && (S.totalQuests || 0) === 0 && (S.totalFocusMin || 0) === 0;
+    var remoteAhead = (d.level || 1) > 1 || (d.exp || 0) > 0 || (d.totalQuests || 0) > 0 || (d.totalFocusMin || 0) > 0;
+    var rescue = (forceRemote !== true) && localFresh && remoteAhead;
+    // 반대쪽도 같이 막는다: 진행된 기록이 상대의 빈 기록(Lv.1 · 경험치 0)에 의해 되돌아가지 않게
+    var remoteFresh = (d.level || 1) <= 1 && (d.exp || 0) === 0 && (d.totalQuests || 0) === 0 && (d.totalFocusMin || 0) === 0;
+    var firewall = (forceRemote !== true) && !localFresh && remoteFresh;
+    // ⬇️ 다른 기기 기록 불러오기(forceRemote)는 저장 시각과 상관없이 상대 기록을 그대로 받는다
+    var pick = forceRemote === true || (rT > lT && !firewall) || rescue;
+    var takeQuests = forceRemote === true || (rescue && !firewall);
     ['townName', 'charName', 'level', 'exp', 'coins', 'gems', 'streak', 'totalQuests', 'totalFocusMin',
       'focusDate', 'focusMinToday', 'sessionsToday', 'lastVisit', 'lastActive', 'seenWelcome', 'sound', 'notif', 'note', 'newsClosed',
       'streakBest', 'streakDate', 'allClearDate', 'allClearCoins'
@@ -4523,7 +4533,12 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
       });
     }
     if (d.quests && d.quests.length) {
-      if (!S.quests || !S.quests.length) { S.quests = adoptQuests(d.quests, d.questsDate); S.questsDate = d.questsDate; changed = true; }
+      if (takeQuests) {
+        // 강제 적용 · 되살리기: 상대 기기의 퀘스트 목록을 진행도·체크 상태까지 그대로 받는다
+        S.quests = d.quests.filter(function (q) { return q && q.title; }).map(cloneQuest);
+        if (d.questsDate && d.questsDate !== S.questsDate) S.questsDate = d.questsDate;
+        changed = true;
+      } else if (!S.quests || !S.quests.length) { S.quests = adoptQuests(d.quests, d.questsDate); S.questsDate = d.questsDate; changed = true; }
       else if (d.questsDate && d.questsDate !== S.questsDate) {
         if (pick) { S.quests = adoptQuests(d.quests, d.questsDate); S.questsDate = d.questsDate; changed = true; }
       } else {
@@ -4605,13 +4620,20 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
       }
     });
     if (d.shop && typeof d.shop === 'object') {
+      // 구매 목록은 어느 한쪽에만 있어도 잃지 않게 합친다 (치즈냥이 같은 털 스킨 포함)
+      if (Array.isArray(d.shop.owned)) {
+        d.shop.owned.forEach(function (id) {
+          if (S.shop.owned.indexOf(id) < 0) { S.shop.owned.push(id); changed = true; }
+        });
+      }
       ['equipped', 'placed'].forEach(function (k) {
         if (!Array.isArray(d.shop[k])) return;
         d.shop[k].forEach(function (id) {
+          if (S.shop.owned.indexOf(id) < 0) { S.shop.owned.push(id); changed = true; }
           if (S.shop[k].indexOf(id) < 0) { S.shop[k].push(id); changed = true; }
         });
       });
-      // 입고 있는 털 스킨은 더 최근에 갈아입은 쪽을 따른다
+      // 입고 있는 털 스킨은 더 최근에 갈아입은 쪽(강제 적용이면 상대 쪽)을 따른다
       if (typeof d.shop.skin === 'string' && d.shop.skin !== S.shop.skin && pick) {
         S.shop.skin = d.shop.skin; changed = true;
       }
@@ -4753,7 +4775,8 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     syncBusy = true; setSyncState('syncing');
     return ensureGist().then(readGistById).then(function (remote) {
       applyingRemote = true;
-      var changed = remote ? mergePayload(remote) : false;
+      // 사용자가 직접 '불러오기'를 눌렀으니 updatedAt과 상관없이 상대 기록을 그대로 적용한다
+      var changed = remote ? mergePayload(remote, true) : false;
       applyingRemote = false;
       if (changed) { silentSave(); refreshAll(); }
       SY.lastSync = Date.now(); saveSync(); setSyncState('ok');
@@ -4783,6 +4806,12 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
         toast('🔄 다른 기기에서 바뀐 기록을 가져왔어요', 'good', 2400);
         return pushGist(SY.gistId);
       }
+      // 상대 Gist 가 아직 아무것도 못 한 빈 기록(Lv.1)인데 내 기록은 진행됐다면,
+      // 내 기록을 다시 올려 상대 기기도 살린다 (빈 기록이 올라와 진도가 가려지는 경우 복구)
+      var rd = remote.data || {};
+      var remoteEmpty = (rd.level || 1) <= 1 && (rd.exp || 0) === 0 && (rd.totalQuests || 0) === 0 && (rd.totalFocusMin || 0) === 0;
+      var mineAhead = (S.level || 1) > 1 || (S.exp || 0) > 0 || (S.totalQuests || 0) > 0 || (S.totalFocusMin || 0) > 0;
+      if (remoteEmpty && mineAhead) return pushGist(SY.gistId);
       SY.pushedAt = Math.max(SY.pushedAt || 0, rT); saveSync();
     }).catch(function (err) {
       setSyncState('error', err && err.message ? err.message : '알 수 없는 오류');
@@ -5560,7 +5589,7 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
       now: function () { return syncNow(false); },
       pull: function () { return syncPull(false); },
       quiet: pullQuiet,
-      merge: function (remote) { return mergePayload(remote); },
+      merge: function (remote, force) { return mergePayload(remote, force === true); },
       build: buildPayload,
       setPass: function (p) { SY.pass = p; saveSync(); },
       setToken: function (t) { SY.token = t; saveSync(); },
