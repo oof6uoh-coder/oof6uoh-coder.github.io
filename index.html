@@ -477,6 +477,12 @@ input,textarea,select{font-family:inherit;color:inherit}
 .toast.good{border-color:rgba(169,232,207,.45);color:#d6fff0}
 .toast.gold{border-color:rgba(255,217,163,.45);color:#ffeccd}
 .toast.out{animation:toastOut .3s ease forwards}
+.toast-undo{
+  margin-left:6px;padding:3px 9px;border-radius:8px;font-size:10.5px;font-weight:800;
+  color:#ffeccd;background:rgba(255,217,163,.16);border:1px solid rgba(255,217,163,.4);
+  pointer-events:auto;cursor:pointer;font-family:var(--font);vertical-align:middle
+}
+.toast-undo:hover{background:rgba(255,217,163,.28)}
 @keyframes toastIn{from{transform:translateY(14px) scale(.94)}to{transform:none}}
 @keyframes toastOut{to{transform:translateY(10px) scale(.96);opacity:0}}
 
@@ -502,13 +508,24 @@ input,textarea,select{font-family:inherit;color:inherit}
 .qgrid{display:grid;gap:9px}
 .big-quest{
   display:flex;gap:13px;padding:14px 16px;border-radius:16px;align-items:flex-start;
-  background:rgba(255,255,255,.035);border:1px solid var(--stroke);transition:.16s;cursor:pointer
+  background:rgba(255,255,255,.035);border:1px solid var(--stroke);transition:.16s;cursor:pointer;position:relative
 }
 .big-quest:hover{background:rgba(255,255,255,.065);border-color:var(--stroke-2)}
 .big-quest.done{opacity:.6}
 .big-quest .q-check{width:22px;height:22px;margin-top:0}
 .big-quest .q-txt{font-size:13.5px}
 .big-quest .q-desc{font-size:11px}
+.big-quest .q-body{padding-right:22px}
+/* 퀘스트 하나만 지우는 × — 평소엔 은은하게, 카드에 올리면 또렷하게 */
+.q-del{
+  position:absolute;top:9px;right:9px;width:23px;height:23px;padding:0;border-radius:8px;
+  display:grid;place-items:center;font-size:15px;font-weight:700;line-height:1;
+  color:var(--muted-2);background:rgba(255,255,255,.04);border:1px solid transparent;
+  opacity:.45;transition:.15s;cursor:pointer;font-family:var(--font)
+}
+.big-quest:hover .q-del{opacity:.8}
+.q-del:hover,.q-del:focus-visible{opacity:1;color:#ff9db4;background:rgba(240,138,138,.14);border-color:rgba(240,138,138,.28);outline:none}
+.q-del:active{transform:scale(.92)}
 .bq-meta{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap}
 .chip{font-size:9.5px;font-weight:800;padding:3px 8px;border-radius:7px;background:rgba(255,255,255,.07);color:var(--muted)}
 .chip.gold{background:rgba(255,217,163,.14);color:var(--gold)}
@@ -2344,13 +2361,15 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     shop: { owned: [], equipped: [], placed: [], skin: 'white', v: 0 }, jobStatus: {},
     interviewNotes: {}, weatherMock: '',
     dailyStats: {}, dailySeeded: 0, badges: {},
-    allClearDate: '', allClearCoins: 0, questHistory: [],
+    allClearDate: '', allClearCoins: 0, questHistory: [], questDel: {},
     todos: [], wrongNotes: [],
     note: '', newsClosed: '',
     seenWelcome: false, importedAt: '', updatedAt: 0,
     sound: true, notif: true
   };
   var S = load();
+  // 🗑️ 지운 퀘스트 표시 { 퀘스트 id: 지운 시각 } — 동기화가 지운 퀘스트를 도로 넣지 않게 한다
+  if (!S.questDel || typeof S.questDel !== 'object' || Array.isArray(S.questDel)) S.questDel = {};
 
   /* ---------- 상점 · 꾸미기 상태 ---------- */
   function shopItem(id) { return D.SHOP.filter(function (x) { return x.id === id; })[0]; }
@@ -2505,6 +2524,7 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
           if (q.type === 'pomodoro' && hasPomo) return;
           seenTitle[k] = 1;
           q.id = t + '#n' + i;
+          q.addedAt = Date.now();
           q.carried = false;
           next.push(q);
         });
@@ -2521,7 +2541,13 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     if (S.focusDate !== t) {
       S.focusDate = t; S.focusMinToday = 0; S.sessionsToday = 0;
     }
-    if (!S.quests || !S.quests.length) S.quests = freshStart ? D.day1Quests(t) : D.buildDailyQuests(t);
+    if (!S.quests || !S.quests.length) {
+      // 같은 날 목록을 직접 다 지운 경우에는 새 퀘스트를 다시 만들지 않는다 (지운 날은 빈 채로)
+      var seedQ = freshStart ? D.day1Quests(t) : D.buildDailyQuests(t);
+      var wasCleared = seedQ.some(function (q) { return questGone(q); });
+      S.quests = wasCleared ? [] : seedQ;
+      S.quests.forEach(function (q) { if (q && !q.addedAt) q.addedAt = Date.now(); });
+    }
     save();
   }
 
@@ -3178,6 +3204,54 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     }
     return '<div class="q-tag crover" title="' + esc(tip) + '">↩︎ 이월</div>';
   }
+  /* ---------- 퀘스트 하나 지우기 (기록은 그대로) ---------- */
+  function questAddedAt(q) { return (q && q.addedAt) || 0; }
+  function questDelTs(id) { return (S.questDel && S.questDel[id]) || 0; }
+  function markQuestDel(id, ts) {
+    if (!id) return;
+    S.questDel = S.questDel || {};
+    var t = ts || Date.now();
+    if (t > (S.questDel[id] || 0)) S.questDel[id] = t;
+  }
+  // 지운 표시가 있는 퀘스트인가 — 같은 id 로 나중에 다시 만든 퀘스트(addedAt 이 더 나중)는 살아 있다
+  function questGone(q) {
+    if (!q || !q.id) return false;
+    var t = questDelTs(q.id);
+    if (!t) return false;
+    return t > questAddedAt(q) + 2000;
+  }
+  var lastQuestDel = null;
+  function delQuest(id) {
+    var idx = -1, q = null;
+    (S.quests || []).forEach(function (x, i) { if (x && x.id === id) { q = x; idx = i; } });
+    if (!q) return false;
+    S.quests.splice(idx, 1);
+    markQuestDel(id, Date.now());
+    lastQuestDel = { q: cloneQuest(q), idx: idx };
+    pruneTodos();
+    save();
+    paintHud(); renderSideQuests(); renderQuestModal();
+    Audio.soft();
+    toast('🗑️ 퀘스트를 지웠어요' + (q.done ? ' · 받은 EXP·코인은 그대로예요' : '') +
+      ' <button type="button" class="toast-undo" data-undo-quest="1">되돌리기</button>', '', 7000);
+    return true;
+  }
+  function undoQuestDel() {
+    var u = lastQuestDel; lastQuestDel = null;
+    if (!u || !u.q) { toast('되돌릴 퀘스트가 없어요', '', 1500); return false; }
+    if ((S.quests || []).some(function (x) { return x && x.id === u.q.id; })) { toast('이미 목록에 있어요', '', 1500); return false; }
+    var q = cloneQuest(u.q);
+    q.addedAt = Date.now();          // 지운 시각보다 나중에 만든 퀘스트 → 다른 기기에서도 살아남는다
+    S.quests = S.quests || [];
+    S.quests.splice(Math.min(Math.max(u.idx || 0, 0), S.quests.length), 0, q);
+    if (S.questDel) delete S.questDel[q.id];
+    save();
+    paintHud(); renderSideQuests(); renderQuestModal();
+    Audio.soft();
+    toast('↩︎ 퀘스트를 되돌렸어요', 'good', 2000);
+    return true;
+  }
+
   function questRow(q, big) {
     var ty = D.QUEST_TYPE[q.type] || D.QUEST_TYPE.self;
     var prog = (q.need && q.need > 1) ? ' <span class="chip">' + Math.min(q.prog || 0, q.need) + '/' + q.need + '</span>' : '';
@@ -3195,7 +3269,9 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
         (q.type === 'pomodoro' ? '<span class="chip auto">🍅 자동 완료</span>' : '') +
         (q.custom ? '<span class="chip lav">✨ 크로버</span>' : '') +
         prog +
-        '</div></div></div>';
+        '</div></div>' +
+        '<button type="button" class="q-del" data-qdel="' + esc(q.id) + '" title="이 퀘스트 지우기" aria-label="이 퀘스트 지우기">×</button>' +
+        '</div>';
     }
     var rw = '<div class="q-rw"><span>+' + q.exp + ' EXP</span><span class="gem">+' + q.coins + ' 🪙</span></div>';
     return '<div class="q-item' + (q.done ? ' done' : '') + '" data-q="' + esc(q.id) + '">' +
@@ -3703,6 +3779,13 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     S.wrongNotes = (S.wrongNotes || []).filter(function (w) { return !(w.del && (w.delAt || 0) < cutoff); });
     // 지난 퀘스트 기록의 삭제 표시도 30일 뒤에 정리한다
     S.questHistory = (S.questHistory || []).filter(function (h) { return !(h && h.del && (h.delAt || 0) < cutoff); });
+    // 지운 퀘스트 표시도 30일 · 최근 100개까지만 남긴다 (Gist 기록을 가볍게)
+    var qd = (S.questDel && typeof S.questDel === 'object') ? S.questDel : {};
+    var qdKeys = Object.keys(qd).filter(function (id) { return (qd[id] || 0) >= cutoff; });
+    qdKeys.sort(function (a, b) { return (qd[b] || 0) - (qd[a] || 0); });
+    var qdKeep = {};
+    qdKeys.slice(0, 100).forEach(function (id) { qdKeep[id] = qd[id]; });
+    S.questDel = qdKeep;
   }
   function openTodos() {
     return allTodos().filter(function (t) { return !t.done || t.doneDate === TODAY; });
@@ -4416,7 +4499,7 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     'totalQuests', 'totalFocusMin', 'questsDate', 'quests', 'focusDate', 'focusMinToday', 'sessionsToday', 'sessionLog',
     'quiz', 'resume', 'owned', 'shop', 'jobStatus', 'dailyStats', 'dailySeeded', 'badges', 'streakDate', 'streakBest',
     'customJobs', 'customTopics', 'todos', 'wrongNotes', 'note', 'newsClosed', 'seenWelcome', 'sound', 'notif',
-    'questHistory', 'labTopic', 'allClearDate', 'allClearCoins', 'interviewNotes'];
+    'questHistory', 'questDel', 'labTopic', 'allClearDate', 'allClearCoins', 'interviewNotes'];
   function buildPayload() {
     var data = {};
     SYNC_FIELDS.forEach(function (k) { if (S[k] !== undefined) data[k] = S[k]; });
@@ -4709,6 +4792,22 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
         if (b > a) { S.sessionLog[k] = b; changed = true; }
       });
     }
+    // 🗑️ 퀘스트 삭제 표시: 같은 id 는 더 늦게 지운 쪽을 따른다
+    // (이게 없으면 지운 퀘스트를 다른 기기의 기록이 도로 밀어 넣어 '되살아난다')
+    if (d.questDel && typeof d.questDel === 'object' && !Array.isArray(d.questDel)) {
+      if (forceRemote === true) {
+        S.questDel = {};
+        Object.keys(d.questDel).forEach(function (id) { S.questDel[id] = d.questDel[id] || 0; });
+      } else {
+        S.questDel = S.questDel || {};
+        Object.keys(d.questDel).forEach(function (id) {
+          var t = d.questDel[id] || 0;
+          if (t > (S.questDel[id] || 0)) { S.questDel[id] = t; changed = true; }
+        });
+      }
+    } else if (forceRemote === true) {
+      S.questDel = {};              // 그 시점 기록에 삭제 표시가 없으면 내 것도 그 시점을 따른다
+    }
     if (d.quests && d.quests.length) {
       if (takeQuests) {
         // 강제 적용 · 되살리기: 상대 기기의 퀘스트 목록을 진행도·체크 상태까지 그대로 받는다
@@ -4724,7 +4823,19 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
         d.quests.forEach(function (q) {
           if (!q || !q.id) return;
           var mine = byId[q.id];
-          if (!mine) { S.quests.push(q); changed = true; return; }
+          if (!mine) {
+            // 지운 표시가 있는 퀘스트는 다시 넣지 않는다
+            if (questGone(q)) return;
+            S.quests.push(q); changed = true; return;
+          }
+          // 같은 id 로 퀘스트를 새로 다시 만든 경우(같은 날 팩을 다시 불러오기 등): 새로 만든 쪽 내용을 따른다
+          if (questAddedAt(q) > questAddedAt(mine) && q.title && q.title !== mine.title) {
+            var fresh = cloneQuest(q);
+            Object.keys(mine).forEach(function (k) { delete mine[k]; });
+            Object.keys(fresh).forEach(function (k) { mine[k] = fresh[k]; });
+            changed = true;
+            return;
+          }
           // 체크·해제는 '누른 시각'(toggledAt)이 더 최근인 쪽을 따른다
           // (예전 기록에는 toggledAt이 없으니 그때만 done: false→true로 합치던 규칙을 쓴다)
           var rTs = q.toggledAt || q.doneAt || 0;
@@ -4744,6 +4855,10 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
         });
       }
     }
+    // 어느 경로로 들어왔든, 지운 표시가 있는 퀘스트는 오늘 목록에서 걷어낸다
+    var qBefore = (S.quests || []).length;
+    S.quests = (S.quests || []).filter(function (q) { return !questGone(q); });
+    if (S.quests.length !== qBefore) changed = true;
     if (Array.isArray(d.questHistory)) {
       S.questHistory = S.questHistory || [];
       var hk = {};
@@ -5145,6 +5260,7 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
       done: !!(prev && prev.done),
       awardedExp: prev ? (prev.awardedExp || 0) : 0,
       awardedCoins: prev ? (prev.awardedCoins || 0) : 0,
+      addedAt: Date.now(),
       custom: true
     };
   }
@@ -5217,19 +5333,32 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
     opts = opts || {};
     var applied = { quests: 0, jobs: 0, topic: 0, note: false, kept: 0, topicKept: false, cleared: false };
     var plan = planImport(obj, !!opts.forceTopic, !!opts.clearOld);
+    // 새 목록으로 바뀔 때 사라지는 퀘스트는 '지웠다'고 표시해 둔다 —
+    // 표시가 없으면 다음 동기화에 다른 기기 기록에서 도로 살아난다
+    var nextQuests = null;
     if (plan.clearOld) {
       // 기존 목록을 통째로 비우고 받은 팩만 넣는다 (받은 팩에 퀘스트가 없으면 비우지 않음)
-      if (plan.added.length) {
-        S.quests = plan.added.slice(0, 12);
-        S.questsDate = TODAY;
-        applied.quests = plan.added.length;
-        applied.cleared = true;
-      }
+      if (plan.added.length) nextQuests = plan.added.slice(0, 12);
     } else if (plan.keep.length || plan.added.length) {
-      S.quests = plan.keep.concat(plan.added).slice(0, 12);
+      nextQuests = plan.keep.concat(plan.added).slice(0, 12);
+    }
+    if (nextQuests) {
+      var keepIds = {}, nowTs = Date.now();
+      nextQuests.forEach(function (q) { if (q && q.id) keepIds[q.id] = 1; });
+      (S.quests || []).forEach(function (q) {
+        if (q && q.id && !keepIds[q.id]) markQuestDel(q.id, nowTs);
+      });
+      // 새로 넣는 퀘스트만 '지금 만든' 퀘스트로 친다 (이어가는 퀘스트의 addedAt 은 건드리지 않는다)
+      plan.added.forEach(function (q) {
+        if (!q) return;
+        q.addedAt = Date.now();
+        if (S.questDel) delete S.questDel[q.id];
+      });
+      S.quests = nextQuests;
       S.questsDate = TODAY;
       applied.quests = plan.added.length;
       applied.kept = plan.keep.length;
+      applied.cleared = !!plan.clearOld;
     }
     if (Array.isArray(obj.jobs) && obj.jobs.length) {
       obj.jobs.forEach(function (j, i) {
@@ -5394,6 +5523,10 @@ textarea.input{resize:vertical;min-height:130px;line-height:1.6;font-family:ui-m
       // quiz options carry data-o (and data-q = question index), so they must be matched before quest rows
       var o = e.target.closest('[data-o]');
       if (o && o.dataset.t) { answerQuiz(o.dataset.t, +o.dataset.q, +o.dataset.o); return; }
+      var qd = e.target.closest('[data-qdel]');
+      if (qd) { delQuest(qd.getAttribute('data-qdel')); return; }
+      var undoQ = e.target.closest('[data-undo-quest]');
+      if (undoQ) { undoQuestDel(); return; }
       var q = e.target.closest('[data-q]');
       if (q) { toggleQuest(q.dataset.q); return; }
       var r = e.target.closest('[data-r]');
